@@ -1,12 +1,4 @@
-import express from "express";
-
-const app = express();
-
-app.use(express.json());
-
-app.get("/", (_req, res) => {
-  res.send("api funcionando");
-});
+import { app } from "./app.js";
 
 const PORT = 3000;
 
