@@ -1,0 +1,4 @@
+
+# Banco SQLite local
+*.sqlite
+*.sqlite-*
