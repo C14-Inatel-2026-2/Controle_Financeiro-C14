@@ -8,3 +8,10 @@ export class ValidationError extends Error {
     this.campo = campo;
   }
 }
+
+export class EmailAlreadyExistsError extends Error {
+  constructor() {
+    super("E-mail já cadastrado.");
+    this.name = "EmailAlreadyExistsError";
+  }
+}
