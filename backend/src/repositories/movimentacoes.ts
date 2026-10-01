@@ -1,4 +1,5 @@
 import type { DatabaseSync } from "node:sqlite";
+import { validarValorEmCentavos } from "./validarValorEmCentavos";
 
 export interface NovaMovimentacao {
   descricao: string;
@@ -11,9 +12,7 @@ export interface NovaMovimentacao {
 export function criarRepositorioMovimentacoes(db: DatabaseSync) {
   return {
     inserir(usuarioId: number, movimento: NovaMovimentacao): number {
-      if (!Number.isSafeInteger(movimento.valorEmCentavos) || movimento.valorEmCentavos < 0) {
-        throw new Error("O valor deve ser um inteiro não negativo em centavos.");
-      }
+      validarValorEmCentavos(movimento.valorEmCentavos);
       const resultado = db.prepare(`
         INSERT INTO movimentacoes (usuario_id, descricao, tipo, valor_em_centavos, data)
         VALUES (?, ?, ?, ?, ?)
@@ -28,3 +27,4 @@ export function criarRepositorioMovimentacoes(db: DatabaseSync) {
     },
   };
 }
+
