@@ -14,6 +14,9 @@ RUN jenkins-plugin-cli \
 # Assim, o volume não oculta a configuração fornecida por esta versão da imagem.
 # Esta etapa vem após os plugins para reaproveitar seu cache quando só o YAML muda.
 COPY --chown=jenkins:jenkins jenkins.yaml /usr/share/jenkins/casc/jenkins.yaml
+# Inclui a definição dos jobs fora do volume persistente, para que a
+# configuração utilizada acompanhe a versão construída da imagem.
+COPY --chown=jenkins:jenkins jobs.groovy /usr/share/jenkins/job-dsl/jobs.groovy
 
 # Informa ao JCasC qual arquivo aplicar na inicialização do Jenkins.
 ENV CASC_JENKINS_CONFIG=/usr/share/jenkins/casc/jenkins.yaml

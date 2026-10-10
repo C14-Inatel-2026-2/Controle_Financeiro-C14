@@ -30,3 +30,8 @@ unclassified:
   location:
     # Endereço usado pelo navegador; não altera a porta interna do servidor.
     url: "http://localhost:8081/"
+
+# Cria ou atualiza as definições dos jobs ao aplicar a configuração.
+# Carregar a definição não inicia uma execução do pipeline.
+jobs:
+  - file: /usr/share/jenkins/job-dsl/jobs.groovy
