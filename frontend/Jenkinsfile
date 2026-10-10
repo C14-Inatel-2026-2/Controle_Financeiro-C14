@@ -1,0 +1,58 @@
+pipeline {
+    agent {
+        label 'node24'
+    }
+
+    options {
+        // O checkout será explícito para permitir limpar o workspace antes.
+        skipDefaultCheckout(true)
+
+        // Impede execuções simultâneas deste mesmo job.
+        disableConcurrentBuilds()
+
+        // Evita que uma execução travada ocupe o agente indefinidamente.
+        timeout(time: 15, unit: 'MINUTES')
+
+        // Limita o histórico e os artefatos armazenados neste Jenkins local.
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+    }
+
+    stages {
+        stage('Obter código') {
+            steps {
+                // Limpa somente o workspace deste job, não o repositório no Windows.
+                deleteDir()
+
+                // Usa o repositório e a branch configurados no job.
+                checkout scm
+            }
+        }
+
+        stage('Instalar dependências') {
+            steps {
+                dir('frontend') {
+                    // Instala conforme o lockfile, sem atualizá-lo.
+                    sh 'npm ci'
+                }
+            }
+        }
+
+        stage('Build do frontend') {
+            steps {
+                dir('frontend') {
+                    sh 'npm run build'
+                }
+            }
+        }
+
+        stage('Guardar arquivos gerados') {
+            steps {
+                // Guarda o resultado para download; não publica a aplicação.
+                archiveArtifacts(
+                    artifacts: 'frontend/dist/**',
+                    fingerprint: true
+                )
+            }
+        }
+    }
+}
