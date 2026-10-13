@@ -4,6 +4,7 @@
   "description": "API do Controle Financeiro",
   "scripts": {
     "dev": "tsx src/server.ts",
+    "test:unit": "vitest run --config vitest.unit.config.mts",
     "test": "vitest run",
     "build": "tsc"
   },
