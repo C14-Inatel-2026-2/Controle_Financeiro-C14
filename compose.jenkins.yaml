@@ -1,0 +1,62 @@
+# Mantém o mesmo projeto para reutilizar o volume existente do controlador.
+name: c14-ci
+
+services:
+  jenkins:
+    build:
+      context: ./infra/jenkins
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      # Publica a interface somente neste computador: Windows 8081 -> contêiner 8080.
+      - "127.0.0.1:8081:8080"
+    volumes:
+      # Preserva usuários, plugins e histórico ao recriar o controlador.
+      - jenkins_home:/var/jenkins_home
+
+  agent-node-v2:
+    build:
+      context: ./infra/jenkins/agent
+      dockerfile: Dockerfile
+    image: c14-jenkins-agent:node24
+
+    # Gerencia sinais e recolhe processos filhos encerrados durante os builds.
+    init: true
+    restart: unless-stopped
+
+    # Define a ordem de início, mas não garante que o Jenkins já esteja pronto.
+    depends_on:
+      - jenkins
+
+    command:
+      # Entre contêineres, usa o nome do serviço e sua porta interna.
+      - "-url"
+      - "http://jenkins:8080/"
+      - "-name"
+      - "agent-node-v2"
+
+      # Dispensa publicar uma porta TCP adicional para a conexão do agente.
+      - "-webSocket"
+
+      # O @ solicita a leitura do segredo em arquivo, sem expor seu valor no YAML.
+      - "-secret"
+      - "@/run/secrets/jenkins_agent_secret"
+
+      - "-workDir"
+      - "/home/jenkins/agent"
+
+    secrets:
+      - jenkins_agent_secret
+
+    volumes:
+      # Os arquivos de trabalho ficam separados dos dados do controlador.
+      - jenkins_agent_workdir:/home/jenkins/agent
+
+volumes:
+  jenkins_home:
+  jenkins_agent_workdir:
+
+secrets:
+  jenkins_agent_secret:
+    # Credencial local, ignorada pelo Git e montada apenas no agente.
+    file: ./.secrets/jenkins-agent-secret.txt

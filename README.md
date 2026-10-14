@@ -7,3 +7,7 @@ Sistema web para controle financeiro desenvolvido para o projeto de Engenharia d
 - **Igor Augusto do Couto** - Banco de Dados / Backend
 - **Gustavo Gago Lopes de Souza** - Backend 
 - **José Matheus Gonçalves Rodrigues** - Backend
+
+## Jenkins
+
+Consulte o [guia de instalação e uso do Jenkins](docs/jenkins/README.md) para preparar o ambiente com Docker e executar manualmente o build do frontend, escolhendo a branch em cada execução.
