@@ -2,3 +2,9 @@
 # Banco SQLite local
 *.sqlite
 *.sqlite-*
+
+# Relatórios de teste (ex.: JUnit XML dos testes de integração)
+reports/
+
+# Relatório de cobertura de testes
+coverage/
