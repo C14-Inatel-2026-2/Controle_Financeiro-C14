@@ -1,0 +1,37 @@
+# Não inclua senhas neste arquivo: seu conteúdo é versionado.
+jenkins:
+  systemMessage: "Controle Financeiro C14 - Jenkins configurado por código."
+
+  # O controlador administra o Jenkins; os builds executam nos agentes.
+  numExecutors: 0
+
+  nodes:
+    - permanent:
+        name: "agent-node-v2"
+        nodeDescription: "Agente Linux com Node.js para builds do projeto."
+
+        # Diretório dentro do agente, separado dos dados do controlador.
+        remoteFS: "/home/jenkins/agent"
+
+        # Limita a execução a um build por vez neste agente.
+        numExecutors: 1
+
+        # Permite que os pipelines selecionem o ambiente com Node.js 24.
+        labelString: "node24"
+
+        # Aceita somente jobs que solicitem uma label compatível.
+        mode: EXCLUSIVE
+
+        launcher:
+          # O agente inicia a conexão; este cadastro não cria o contêiner.
+          inbound: {}
+
+unclassified:
+  location:
+    # Endereço usado pelo navegador; não altera a porta interna do servidor.
+    url: "http://localhost:8081/"
+
+# Cria ou atualiza as definições dos jobs ao aplicar a configuração.
+# Carregar a definição não inicia uma execução do pipeline.
+jobs:
+  - file: /usr/share/jenkins/job-dsl/jobs.groovy

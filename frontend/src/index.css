@@ -1,43 +1,183 @@
+* {
+  box-sizing: border-box;
+}
+
 body {
-  font-family: system-ui, sans-serif;
-  background: #f4f5f7;
-  display: flex;
-  justify-content: center;
-  padding-top: 4rem;
+  margin: 0;
+  background: #0f1115;
+  color: #e8eaef;
+  font-family: "DM Sans", system-ui, sans-serif;
 }
 
-form {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  width: 320px;
-  padding: 2rem;
-  background: white;
-  border-radius: 8px;
+h1,
+h2,
+.logo {
+  font-family: "Space Grotesk", system-ui, sans-serif;
+  font-weight: 600;
 }
 
-label {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-input {
-  padding: 0.5rem;
-}
-
-button {
-  margin-top: 1rem;
-  padding: 0.6rem;
-  cursor: pointer;
-}
-
-.erro {
-  color: #c0392b;
-  font-size: 0.85rem;
+h1,
+h2,
+p {
   margin: 0;
 }
 
+a {
+  color: #45c79a;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/* As duas colunas */
+.tela-dividida {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  min-height: 100vh;
+}
+
+/* Lado esquerdo: a marca */
+.painel-marca {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 56px;
+  background: radial-gradient(120% 90% at 0% 100%, rgba(69, 199, 154, 0.16), transparent 60%), #13161c;
+  border-right: 1px solid #262a33;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 17px;
+}
+
+.chamada h2 {
+  max-width: 440px;
+  font-size: 48px;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+}
+
+.chamada p {
+  margin-top: 16px;
+  font-size: 16px;
+  color: #9aa1ad;
+}
+
+.rodape-marca {
+  font-size: 13px;
+  color: #5f6673;
+}
+
+/* Lado direito: o formulário */
+.painel-form {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+}
+
+form {
+  width: 360px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.titulo {
+  margin-bottom: 8px;
+}
+
+.titulo h1 {
+  font-size: 26px;
+  letter-spacing: -0.02em;
+}
+
+.titulo p {
+  margin-top: 6px;
+  font-size: 14px;
+  color: #9aa1ad;
+}
+
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #c9ced8;
+}
+
+input {
+  height: 44px;
+  padding: 0 14px;
+  background: #0f1115;
+  border: 1px solid #2a2f3a;
+  border-radius: 8px;
+  color: #e8eaef;
+  font-family: inherit;
+  font-size: 15px;
+}
+
+input::placeholder {
+  color: #5f6673;
+}
+
+input:focus {
+  outline: none;
+  border-color: #45c79a;
+  box-shadow: 0 0 0 3px rgba(69, 199, 154, 0.18);
+}
+
+input.invalido {
+  border-color: #f2766b;
+}
+
+.erro {
+  font-weight: 400;
+  color: #f2766b;
+}
+
+button {
+  height: 44px;
+  margin-top: 8px;
+  background: #45c79a;
+  color: #0b1a14;
+  border: none;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #6fdcb4;
+}
+
 .sucesso {
-  color: #1e8449;
+  color: #45c79a;
+}
+
+.rodape-form {
+  margin-top: 8px;
+  text-align: center;
+  font-size: 14px;
+  color: #9aa1ad;
+}
+
+/* Celular: uma coluna só, sem o painel da marca */
+@media (max-width: 800px) {
+  .tela-dividida {
+    grid-template-columns: 1fr;
+  }
+
+  .painel-marca {
+    display: none;
+  }
 }

@@ -1,0 +1,134 @@
+pipeline {
+    agent {
+        label 'node24'
+    }
+
+    options {
+        // O checkout será explícito para permitir limpar o workspace antes.
+        skipDefaultCheckout(true)
+
+        // Impede execuções simultâneas deste mesmo job.
+        disableConcurrentBuilds()
+
+        // Evita que uma execução travada ocupe o agente indefinidamente.
+        timeout(time: 15, unit: 'MINUTES')
+
+        // Limita o histórico e os artefatos armazenados neste Jenkins local.
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+    }
+
+    stages {
+        stage('Obter código') {
+            steps {
+                // Limpa somente o workspace deste job, não o repositório.
+                deleteDir()
+
+                // Usa o repositório e a branch configurados no job.
+                checkout scm
+            }
+        }
+
+        stage('Instalar dependências') {
+            steps {
+                dir('backend') {
+                    // Instala conforme o lockfile, sem atualizá-lo.
+                    // Uma falha aqui interrompe o pipeline: nenhuma etapa
+                    // de teste roda sem as dependências instaladas.
+                    sh 'npm ci'
+                }
+            }
+        }
+
+        stage('Testes de integração') {
+            steps {
+                dir('backend') {
+                    // catchError permite que uma falha aqui marque o build
+                    // como FAILURE sem abortar o pipeline, para que a etapa
+                    // de cobertura ainda rode e sirva de diagnóstico.
+                    catchError(
+                        buildResult: 'FAILURE',
+                        stageResult: 'FAILURE',
+                        catchInterruptions: false
+                    ) {
+                        script {
+                            // Marca a tentativa antes do comando: o reporter
+                            // JUnit do vitest grava o XML mesmo quando algum
+                            // teste falha, então o relatório é esperado
+                            // mesmo que o comando termine com erro.
+                            env.INTEGRATION_TESTS_ATTEMPTED = 'true'
+                        }
+
+                        sh 'npm run test:integration'
+                    }
+                }
+            }
+        }
+
+        stage('Cobertura completa') {
+            steps {
+                dir('backend') {
+                    // Executa a suíte completa (unitários + integração)
+                    // com cobertura. Não usa catchError: se este comando
+                    // falhar, o build já deve terminar como FAILURE sem
+                    // mais etapas — não há nada depois dela.
+                    sh 'npm run test:coverage'
+
+                    script {
+                        // Só marca sucesso se o comando acima não lançou erro.
+                        env.COVERAGE_SUCCEEDED = 'true'
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            script {
+                def integrationReportExists = fileExists('backend/reports/integration.xml')
+                def coverageReportExists = fileExists('backend/coverage/index.html')
+
+                // Publica somente o que realmente existe, para não
+                // mascarar uma falha de instalação (sem nenhum relatório)
+                // com um erro adicional de "arquivo não encontrado".
+                if (integrationReportExists) {
+                    junit testResults: 'backend/reports/integration.xml'
+                }
+
+                if (coverageReportExists) {
+                    publishHTML(target: [
+                        reportDir: 'backend/coverage',
+                        reportFiles: 'index.html',
+                        reportName: 'Cobertura do backend',
+                        keepAll: true,
+                        alwaysLinkToLastBuild: true,
+                        allowMissing: false
+                    ])
+                }
+
+                if (integrationReportExists || coverageReportExists) {
+                    archiveArtifacts(
+                        artifacts: 'backend/reports/**, backend/coverage/**',
+                        allowEmptyArchive: true,
+                        fingerprint: true
+                    )
+                }
+
+                // Depois de publicar o que está disponível, valida que os
+                // comandos que terminaram sem erro de fato geraram os
+                // relatórios esperados. Isso não mascara a falha de
+                // instalação (as flags só existem quando os comandos
+                // correspondentes chegaram a rodar) e detecta uma
+                // configuração quebrada de reporter/cobertura mesmo
+                // quando os testes em si passam.
+                if (env.INTEGRATION_TESTS_ATTEMPTED == 'true' && !integrationReportExists) {
+                    error 'npm run test:integration rodou, mas backend/reports/integration.xml não foi gerado.'
+                }
+
+                if (env.COVERAGE_SUCCEEDED == 'true' && !coverageReportExists) {
+                    error 'npm run test:coverage terminou com sucesso, mas backend/coverage/index.html não foi gerado.'
+                }
+            }
+        }
+    }
+}
