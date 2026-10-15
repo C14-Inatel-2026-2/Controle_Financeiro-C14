@@ -1,0 +1,170 @@
+pipeline {
+    agent {
+        label 'node24'
+    }
+
+    options {
+        // O checkout será explícito para permitir limpar o workspace antes.
+        skipDefaultCheckout(true)
+
+        // Dois deploys ao mesmo tempo disputariam a mesma pasta e a mesma porta.
+        disableConcurrentBuilds()
+
+        // Evita que uma execução travada ocupe o agente indefinidamente.
+        timeout(time: 15, unit: 'MINUTES')
+
+        // Limita o histórico e os artefatos armazenados neste Jenkins local.
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+    }
+
+    environment {
+        // Fica fora do workspace, que é apagado a cada execução, e dentro do
+        // volume do agente, para sobreviver ao reinício do contêiner.
+        DEPLOY_DIR = '/home/jenkins/agent/deploy/controle-financeiro'
+
+        // Mesma porta usada por backend/src/server.ts.
+        APP_PORT = '3000'
+    }
+
+    stages {
+        stage('Obter código') {
+            steps {
+                // Limpa somente o workspace deste job, não a pasta de deploy.
+                deleteDir()
+
+                // Usa o repositório e a branch configurados no job.
+                checkout scm
+            }
+        }
+
+        stage('Instalar dependências') {
+            steps {
+                dir('backend') {
+                    // Instala conforme o lockfile, sem atualizá-lo.
+                    sh 'npm ci'
+                }
+            }
+        }
+
+        stage('Testes do backend') {
+            steps {
+                dir('backend') {
+                    // É este estágio que torna os arquivos "aprovados": uma
+                    // falha aqui interrompe o pipeline e a versão que está no
+                    // ar continua intacta, sem ser substituída.
+                    sh 'npm test'
+                }
+            }
+        }
+
+        stage('Build do backend') {
+            steps {
+                dir('backend') {
+                    sh 'npm run build'
+
+                    // Garante que o build realmente produziu o que será publicado.
+                    sh 'test -f dist/server.js'
+                }
+            }
+        }
+
+        stage('Publicar na pasta de deploy') {
+            steps {
+                sh '''
+                    set -eu
+
+                    # A pasta de dados é criada uma única vez e nunca é apagada:
+                    # é nela que o SQLite sobrevive de uma versão para a outra.
+                    mkdir -p "$DEPLOY_DIR/data"
+
+                    # A nova versão é montada ao lado da que está no ar, para
+                    # que a troca seja rápida e a aplicação fique parada o
+                    # mínimo de tempo possível.
+                    rm -rf "$DEPLOY_DIR/app.novo"
+                    mkdir -p "$DEPLOY_DIR/app.novo"
+
+                    cp -r backend/dist "$DEPLOY_DIR/app.novo/"
+                    cp backend/package.json backend/package-lock.json "$DEPLOY_DIR/app.novo/"
+
+                    # Somente as dependências de produção: o que é de teste e de
+                    # build não precisa acompanhar a aplicação publicada.
+                    cd "$DEPLOY_DIR/app.novo"
+                    npm ci --omit=dev
+                '''
+            }
+        }
+
+        stage('Reiniciar a aplicação') {
+            steps {
+                sh '''
+                    set -eu
+
+                    # Encerra a versão anterior, se ainda houver uma rodando.
+                    if [ -f "$DEPLOY_DIR/app.pid" ]; then
+                        PID=$(cat "$DEPLOY_DIR/app.pid")
+                        if kill -0 "$PID" 2>/dev/null; then
+                            kill "$PID"
+                            sleep 2
+                        fi
+                        rm -f "$DEPLOY_DIR/app.pid"
+                    fi
+
+                    # Troca a versão publicada. A pasta data/ não é tocada.
+                    # O teste do diretório fica dentro do if porque, no primeiro
+                    # deploy, a pasta app/ ainda não existe e o set -e abortaria
+                    # o script num teste que termina com erro.
+                    rm -rf "$DEPLOY_DIR/app.anterior"
+                    if [ -d "$DEPLOY_DIR/app" ]; then
+                        mv "$DEPLOY_DIR/app" "$DEPLOY_DIR/app.anterior"
+                    fi
+                    mv "$DEPLOY_DIR/app.novo" "$DEPLOY_DIR/app"
+
+                    # O diretório atual é a pasta de deploy, e não a app/: é
+                    # assim que o caminho relativo usado por abrirBanco() cai
+                    # sempre no mesmo data/financeiro.sqlite preservado.
+                    cd "$DEPLOY_DIR"
+
+                    # Sem o JENKINS_NODE_COOKIE, o Jenkins encerra os processos
+                    # que sobram do build e derruba a aplicação logo após o deploy.
+                    JENKINS_NODE_COOKIE=dontKillMe nohup node app/dist/server.js > "$DEPLOY_DIR/app.log" 2>&1 &
+                    echo $! > "$DEPLOY_DIR/app.pid"
+                '''
+            }
+        }
+
+        stage('Verificar a aplicação') {
+            steps {
+                sh '''
+                    set -eu
+
+                    # A aplicação leva um instante para abrir a porta, então a
+                    # verificação tenta algumas vezes antes de considerar falha.
+                    for _ in 1 2 3 4 5 6 7 8 9 10; do
+                        if node -e "fetch('http://localhost:'+process.env.APP_PORT+'/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"; then
+                            echo "Aplicação respondeu em /health."
+                            exit 0
+                        fi
+                        sleep 1
+                    done
+
+                    echo "A aplicação não respondeu. Últimas linhas do log:"
+                    tail -n 50 "$DEPLOY_DIR/app.log"
+                    exit 1
+                '''
+            }
+        }
+    }
+
+    post {
+        always {
+            // O log acompanha o build e permite diagnosticar uma falha sem
+            // precisar entrar no contêiner do agente.
+            sh 'cp "$DEPLOY_DIR/app.log" app.log 2>/dev/null || true'
+
+            archiveArtifacts(
+                artifacts: 'app.log',
+                allowEmptyArchive: true
+            )
+        }
+    }
+}
