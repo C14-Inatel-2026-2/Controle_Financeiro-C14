@@ -15,7 +15,7 @@ pipelineJob('frontend-build') {
                 git {
                     remote {
                         url('https://github.com/C14-Inatel-2026-2/Controle_Financeiro-C14.git')
-                    }
+                    }me e
 
                     // As aspas simples preservam o parâmetro para sua
                     // substituição pelo Jenkins no momento da execução.
@@ -83,6 +83,29 @@ pipelineJob('backend-build') {
                 }
             }
             scriptPath('backend/Jenkinsfile')
+            lightweight(false)
+        }
+    }
+}
+
+pipelineJob('backend-deploy') {
+    description('Publica o backend aprovado numa pasta local do agente e reinicia a aplicação, preservando o SQLite.')
+
+    parameters {
+        stringParam('BRANCH', 'Branch-Donatto', 'Branch publicada no GitHub, sem origin/.')
+    }
+
+    definition {
+        cpsScm {
+            scm {
+                git {
+                    remote {
+                        url('https://github.com/C14-Inatel-2026-2/Controle_Financeiro-C14.git')
+                    }
+                    branch('refs/heads/${BRANCH}')
+                }
+            }
+            scriptPath('backend/Jenkinsfile.deploy')
             lightweight(false)
         }
     }
