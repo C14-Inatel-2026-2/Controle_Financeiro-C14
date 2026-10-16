@@ -1,0 +1,48 @@
+pipeline {
+    agent {
+        label 'node24'
+    }
+
+    options {
+        skipDefaultCheckout(true)
+        disableConcurrentBuilds()
+        timeout(time: 15, unit: 'MINUTES')
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+    }
+
+    stages {
+        stage('Obter código') {
+            steps {
+                deleteDir()
+                checkout scm
+            }
+        }
+
+        stage('Instalar dependências') {
+            steps {
+                dir('backend') {
+                    sh 'npm ci'
+                }
+            }
+        }
+
+        stage('Build do backend') {
+            steps {
+                dir('backend') {
+                    sh 'npm run build'
+                }
+            }
+        }
+
+        stage('Guardar arquivos gerados') {
+            steps {
+                sh 'test -f backend/dist/server.js'
+
+                archiveArtifacts(
+                    artifacts: 'backend/dist/**, backend/package.json, backend/package-lock.json',
+                    fingerprint: true
+                )
+            }
+        }
+    }
+}
