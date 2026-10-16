@@ -4,6 +4,7 @@
   "description": "API do Controle Financeiro",
   "scripts": {
     "dev": "tsx src/server.ts",
+    "test:unit": "vitest run --config vitest.unit.config.mts",
     "test": "vitest run",
     "test:integration": "vitest run tests/integration --reporter=default --reporter=junit --outputFile=reports/integration.xml",
     "test:coverage": "vitest run --coverage",

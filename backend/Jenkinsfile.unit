@@ -1,0 +1,41 @@
+pipeline {
+    agent { label 'node24' }
+
+    options {
+        skipDefaultCheckout(true)
+        disableConcurrentBuilds()
+        timeout(time: 15, unit: 'MINUTES')
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+    }
+
+    stages {
+        stage('Obter código') {
+            steps {
+                deleteDir()
+                checkout scm
+            }
+        }
+        stage('Instalar dependências') {
+            steps {
+                dir('backend') {
+                    sh 'npm ci'
+                }
+            }
+        }
+        stage('Testes unitários') {
+            steps {
+                dir('backend') {
+                    // A saída diferente de zero faz o job terminar com FAILURE.
+                    sh 'npm run test:unit'
+                }
+            }
+            post {
+                always {
+                    // Publica os resultados mesmo quando algum teste falha.
+                    junit testResults: 'backend/reports/unit/junit.xml', allowEmptyResults: false
+                    archiveArtifacts artifacts: 'backend/reports/unit/junit.xml', allowEmptyArchive: false
+                }
+            }
+        }
+    }
+}

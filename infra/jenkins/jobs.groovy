@@ -15,7 +15,7 @@ pipelineJob('frontend-build') {
                 git {
                     remote {
                         url('https://github.com/C14-Inatel-2026-2/Controle_Financeiro-C14.git')
-                    }me e
+                    }
 
                     // As aspas simples preservam o parâmetro para sua
                     // substituição pelo Jenkins no momento da execução.
@@ -106,6 +106,27 @@ pipelineJob('backend-deploy') {
                 }
             }
             scriptPath('backend/Jenkinsfile.deploy')
+            lightweight(false)
+        }
+    }
+}
+
+pipelineJob('backend-unit-igor') {
+    description('Testes unitários do backend com relatório JUnit para a branch informada.')
+    parameters {
+        stringParam('BRANCH', 'Branch-Igor', 'Nome exato da branch publicada no GitHub, sem origin/.')
+    }
+    definition {
+        cpsScm {
+            scm {
+                git {
+                    remote {
+                        url('https://github.com/C14-Inatel-2026-2/Controle_Financeiro-C14.git')
+                    }
+                    branch('refs/heads/${BRANCH}')
+                }
+            }
+            scriptPath('backend/Jenkinsfile.unit')
             lightweight(false)
         }
     }
