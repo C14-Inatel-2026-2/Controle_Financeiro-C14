@@ -87,6 +87,30 @@ pipelineJob('backend-build') {
         }
     }
 }
+
+pipelineJob('backend-deploy') {
+    description('Publica o backend aprovado numa pasta local do agente e reinicia a aplicação, preservando o SQLite.')
+
+    parameters {
+        stringParam('BRANCH', 'Branch-Donatto', 'Branch publicada no GitHub, sem origin/.')
+    }
+
+    definition {
+        cpsScm {
+            scm {
+                git {
+                    remote {
+                        url('https://github.com/C14-Inatel-2026-2/Controle_Financeiro-C14.git')
+                    }
+                    branch('refs/heads/${BRANCH}')
+                }
+            }
+            scriptPath('backend/Jenkinsfile.deploy')
+            lightweight(false)
+        }
+    }
+}
+
 pipelineJob('backend-unit-igor') {
     description('Testes unitários do backend com relatório JUnit para a branch informada.')
     parameters {
