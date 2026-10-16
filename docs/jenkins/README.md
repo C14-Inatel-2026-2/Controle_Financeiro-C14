@@ -26,12 +26,12 @@ Resultados esperados: versões do Git e do Compose, informações de `Client` e 
 
 ## 2. Obter o projeto
 
-Use uma branch que contenha `compose.jenkins.yaml`, a pasta `infra/jenkins` e `frontend/Jenkinsfile`. O exemplo abaixo utiliza `Branch-Gustavo`; depois que a configuração estiver integrada à `main`, ela também poderá ser usada.
+Use uma branch que contenha `compose.jenkins.yaml`, a pasta `infra/jenkins` e `frontend/Jenkinsfile`. O exemplo abaixo utiliza a `main`, que já contém esses arquivos.
 
 **Terminal PowerShell — na pasta em que deseja guardar o projeto, somente se ainda não tiver um clone:**
 
 ```powershell
-git clone --branch Branch-Gustavo https://github.com/josematheusrodrigues/Controle_Financeiro-C14.git
+git clone --branch main https://github.com/C14-Inatel-2026-2/Controle_Financeiro-C14.git
 Set-Location .\Controle_Financeiro-C14
 ```
 
@@ -146,11 +146,11 @@ O job `frontend-build` é criado automaticamente a partir da configuração, mas
 1. Abra [o Jenkins](http://localhost:8081/) e entre com seu usuário.
 2. Abra **frontend-build**.
 3. Clique em **Construir com parâmetros / Build with Parameters**.
-4. Informe o nome exato da branch no campo **BRANCH**, por exemplo, `Branch-Gustavo` ou `main`. Não use o prefixo `origin/` nem espaços antes ou depois do nome.
+4. Informe o nome exato da branch no campo **BRANCH**, por exemplo, `main` ou `Branch-Gustavo`. Não use o prefixo `origin/` nem espaços antes ou depois do nome.
 5. Clique em **Construir / Build**.
 6. Abra a execução no histórico e consulte **Saída do console / Console Output**.
 
-A branch precisa estar publicada no GitHub e conter `frontend/Jenkinsfile`, com `J` maiúsculo. Faça commit e push das alterações que deseja verificar antes de iniciar o build. Escolher `main` só funciona quando esse arquivo já estiver nela.
+A branch precisa estar publicada no repositório `C14-Inatel-2026-2/Controle_Financeiro-C14` e conter `frontend/Jenkinsfile`, com `J` maiúsculo. Faça commit e push das alterações que deseja verificar antes de iniciar o build.
 
 O job busca o código do GitHub para uma pasta própria do agente. A branch aberta no editor e os arquivos não enviados do seu computador não determinam o código utilizado no build. Não é necessário dar `pull` na branch escolhida para executar o job.
 
@@ -163,7 +163,10 @@ O pipeline executa as seguintes etapas:
 | Build do frontend | Executa `npm run build`, que faz a compilação TypeScript e o build com Vite. |
 | Guardar arquivos gerados | Arquiva o conteúdo de `frontend/dist` para consulta e download no Jenkins. |
 
-O resultado esperado é `Finished: SUCCESS`, com os arquivos disponíveis na seção de artefatos da execução. Esse job não executa os testes nem publica a aplicação; essas atividades devem ser configuradas em jobs próprios e não fazem parte deste guia.
+O resultado esperado é `Finished: SUCCESS`, com os arquivos disponíveis na seção de artefatos da execução. Esse job não executa os testes nem publica a aplicação; essas atividades são feitas por jobs próprios e não fazem parte deste guia. Consulte os guias específicos:
+
+- [Testes unitários do backend](unitarios.md): job `backend-unit-igor`.
+- [Integração e cobertura do backend](backend-integracao-cobertura.md): job `backend-integration-coverage`.
 
 Para registrar a validação de um PR, anote o número da execução, a branch e o commit indicado no console. Um resultado anterior não valida novos commits enviados depois. O endereço `localhost` aponta para a máquina de quem o abre: ele não permite que um colega veja seu histórico. Compartilhe evidências sem credenciais ou peça que o colega reproduza a execução.
 
@@ -217,9 +220,10 @@ Mudanças apenas no código do frontend ou no arquivo do pipeline não exigem re
 | [infra/jenkins/Dockerfile](../../infra/jenkins/Dockerfile) | Constrói a imagem do controlador com plugins e arquivos de configuração. |
 | [infra/jenkins/plugins.txt](../../infra/jenkins/plugins.txt) | Define os plugins e suas versões. |
 | [infra/jenkins/jenkins.yaml](../../infra/jenkins/jenkins.yaml) | Aplica as configurações do Jenkins por JCasC e carrega os jobs. |
-| [infra/jenkins/jobs.groovy](../../infra/jenkins/jobs.groovy) | Cria o job manual e seu parâmetro `BRANCH`. |
+| [infra/jenkins/jobs.groovy](../../infra/jenkins/jobs.groovy) | Cria os jobs manuais e seus parâmetros `BRANCH`. |
 | [infra/jenkins/agent/Dockerfile](../../infra/jenkins/agent/Dockerfile) | Constrói o agente com Java, Git, Node.js e npm. |
 | [frontend/Jenkinsfile](../../frontend/Jenkinsfile) | Define as etapas do build do frontend. |
+| [backend/Jenkinsfile.integration](../../backend/Jenkinsfile.integration) | Define as etapas de integração e cobertura do backend. |
 | `.secrets/jenkins-agent-secret.txt` | Armazena a credencial local do agente; não é versionado. |
 
 A porta `8081` é usada pelo navegador. Dentro da rede do Compose, o agente acessa o controlador em `http://jenkins:8080/`: `jenkins` é o nome do serviço e `8080` é sua porta interna. Não troque esse endereço por `localhost:8081`, pois `localhost` dentro do agente aponta para o próprio contêiner.
