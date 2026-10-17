@@ -1,0 +1,87 @@
+Started by user Caio de Castro
+Checking out git https://github.com/C14-Inatel-2026-2/Controle_Financeiro-C14.git into /var/jenkins_home/workspace/pipeline-completa@script/9bd25b490740567bcabb4abf749598f97d5436c40d6c1a20fd5f8a4d4b74dab5 to read Jenkinsfile
+The recommended git tool is: NONE
+No credentials specified
+ > git rev-parse --resolve-git-dir /var/jenkins_home/workspace/pipeline-completa@script/9bd25b490740567bcabb4abf749598f97d5436c40d6c1a20fd5f8a4d4b74dab5/.git # timeout=10
+Fetching changes from the remote Git repository
+ > git config remote.origin.url https://github.com/C14-Inatel-2026-2/Controle_Financeiro-C14.git # timeout=10
+Fetching upstream changes from https://github.com/C14-Inatel-2026-2/Controle_Financeiro-C14.git
+ > git --version # timeout=10
+ > git --version # 'git version 2.47.3'
+ > git fetch --tags --force --progress -- https://github.com/C14-Inatel-2026-2/Controle_Financeiro-C14.git +refs/heads/*:refs/remotes/origin/* # timeout=10
+ > git rev-parse refs/remotes/origin/main^{commit} # timeout=10
+Checking out Revision dbcc705c136b68b4afaf4db5f0a5978c2164b7fc (refs/remotes/origin/main)
+ > git config core.sparsecheckout # timeout=10
+ > git checkout -f dbcc705c136b68b4afaf4db5f0a5978c2164b7fc # timeout=10
+Commit message: "Merge pull request #25 from C14-Inatel-2026-2/Branch-Donatto"
+First time build. Skipping changelog.
+[Pipeline] Start of Pipeline
+[Pipeline] properties
+[Pipeline] timeout
+Timeout set to expire in 1 hr 0 min
+[Pipeline] {
+[Pipeline] stage
+[Pipeline] { (Resolver commit)
+[Pipeline] node
+Running on agent-node-v2 in /home/jenkins/agent/workspace/pipeline-completa
+[Pipeline] {
+[Pipeline] withEnv
+[Pipeline] {
+[Pipeline] sh
++ git ls-remote --exit-code https://github.com/C14-Inatel-2026-2/Controle_Financeiro-C14.git refs/heads/main
+[Pipeline] }
+[Pipeline] // withEnv
+[Pipeline] }
+[Pipeline] // node
+[Pipeline] echo
+Commit escolhido: dbcc705c136b68b4afaf4db5f0a5978c2164b7fc (ponta de main no início da pipeline).
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] stage
+[Pipeline] { (Build)
+[Pipeline] parallel
+[Pipeline] { (Branch: Frontend)
+[Pipeline] { (Branch: Backend)
+[Pipeline] build
+Scheduling project: frontend-build
+[Pipeline] build
+Scheduling project: backend-build
+Starting building: frontend-build #4
+Starting building: backend-build #6
+Build backend-build #6 completed: SUCCESS
+[Pipeline] }
+Build frontend-build #4 completed: SUCCESS
+[Pipeline] }
+[Pipeline] // parallel
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] stage
+[Pipeline] { (Testes)
+[Pipeline] parallel
+[Pipeline] { (Branch: Unitários)
+[Pipeline] { (Branch: Integração e cobertura)
+[Pipeline] build
+Scheduling project: backend-unit-igor
+[Pipeline] build
+Scheduling project: backend-integration-coverage
+Starting building: backend-integration-coverage #7
+Starting building: backend-unit-igor #4
+Build backend-unit-igor #4 completed: SUCCESS
+[Pipeline] }
+Build backend-integration-coverage #7 completed: SUCCESS
+[Pipeline] }
+[Pipeline] // parallel
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] stage
+[Pipeline] { (Deploy)
+[Pipeline] build
+Scheduling project: backend-deploy
+Starting building: backend-deploy #3
+Build backend-deploy #3 completed: SUCCESS
+[Pipeline] }
+[Pipeline] // stage
+[Pipeline] }
+[Pipeline] // timeout
+[Pipeline] End of Pipeline
+Finished: SUCCESS

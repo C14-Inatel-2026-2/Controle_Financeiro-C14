@@ -150,7 +150,7 @@ O job continua podendo ser executado sozinho, como descrito acima, e também é 
 | `backend-integration-coverage` | [backend/Jenkinsfile.integration](../../backend/Jenkinsfile.integration) | `Branch-Caio` | Testes |
 | `backend-deploy` | [backend/Jenkinsfile.deploy](../../backend/Jenkinsfile.deploy) | `Branch-Donatto` | Deploy |
 
-Os valores padrão de `BRANCH` valem só para a execução manual: a pipeline repassa a sua própria `BRANCH` e o mesmo `GIT_COMMIT_SHA` aos cinco jobs. O [guia do Jenkins](README.md#validações-registradas) registra as validações da pipeline e o que ainda falta validar, como a execução em `main` e uma instância limpa.
+Os valores padrão de `BRANCH` valem só para a execução manual: a pipeline repassa a sua própria `BRANCH` e o mesmo `GIT_COMMIT_SHA` aos cinco jobs. O [guia do Jenkins](README.md#validações-registradas) registra as validações da pipeline, inclusive a execução em `main`, e o que ainda falta validar, como uma instância limpa.
 
 Também continuam pendentes para este job:
 

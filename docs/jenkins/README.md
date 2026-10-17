@@ -236,9 +236,24 @@ Validações manuais realizadas pela equipe em 17/10/2026, numa instância local
 
 A branch `ci/validar-bloqueio-deploy` existe apenas para essa validação e não deve ser integrada à `main`.
 
+#### Execução em `main`
+
+Depois de integrar as branches, a pipeline foi executada com `BRANCH=main`, na mesma instância local:
+
+- **Data:** 17/10/2026.
+- **Pipeline:** `pipeline-completa` #4.
+- **Branch:** `main`.
+- **Commit:** `dbcc705c136b68b4afaf4db5f0a5978c2164b7fc`.
+- **`frontend-build` #4:** `SUCCESS`.
+- **`backend-build` #6:** `SUCCESS`.
+- **`backend-unit-igor` #4:** `SUCCESS`.
+- **`backend-integration-coverage` #7:** `SUCCESS`.
+- **`backend-deploy` #3:** `SUCCESS`.
+- **Resultado final:** `SUCCESS`.
+- **Evidência:** [console da pipeline-completa #4](evidencias/pipeline-completa-main-2026-10-17.txt).
+
 Ainda não foram realizados:
 
-- **Execução em `main`:** executar a pipeline com `BRANCH=main`, depois de integrar as branches, e registrar os resultados.
 - **Instância limpa:** confirmar que uma instalação nova, construída a partir da `main`, cria os seis jobs com os parâmetros e plugins necessários.
 - **Gatilhos automáticos:** a pipeline e os jobs continuam sendo executados manualmente.
 - **Uso do banco pela API:** a aplicação publicada ainda não lê nem grava no SQLite, então cadastro e persistência pela API não foram validados.
