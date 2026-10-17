@@ -15,6 +15,9 @@ pipeline {
             steps {
                 deleteDir()
                 checkout scm
+
+                // Falha se o HEAD não for a revisão pedida ao job.
+                load 'infra/jenkins/confirmar-revisao.groovy'
             }
         }
 
