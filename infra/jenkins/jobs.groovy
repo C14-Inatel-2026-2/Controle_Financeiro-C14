@@ -7,6 +7,11 @@ pipelineJob('frontend-build') {
             'Branch-Gustavo',
             'Nome exato da branch publicada no GitHub, sem origin/. Exemplo: main.'
         )
+        stringParam(
+            'GIT_COMMIT_SHA',
+            'refs/heads/${BRANCH}',
+            'SHA completo do commit a executar, preenchido pela pipeline completa. Na execução manual, mantenha refs/heads/${BRANCH} para usar a ponta de BRANCH.'
+        )
     }
 
     definition {
@@ -19,7 +24,10 @@ pipelineJob('frontend-build') {
 
                     // As aspas simples preservam o parâmetro para sua
                     // substituição pelo Jenkins no momento da execução.
-                    branch('refs/heads/${BRANCH}')
+                    // O plugin Git expande o valor duas vezes: um SHA completo
+                    // fixa o commit e o padrão refs/heads/${BRANCH} vira a
+                    // ponta da branch. Vale para o Jenkinsfile e o checkout scm.
+                    branch('${GIT_COMMIT_SHA}')
                 }
             }
 
@@ -41,6 +49,11 @@ pipelineJob('backend-integration-coverage') {
             'Branch-Caio',
             'Nome exato da branch publicada no GitHub, sem origin/. Exemplo: main.'
         )
+        stringParam(
+            'GIT_COMMIT_SHA',
+            'refs/heads/${BRANCH}',
+            'SHA completo do commit a executar, preenchido pela pipeline completa. Na execução manual, mantenha refs/heads/${BRANCH} para usar a ponta de BRANCH.'
+        )
     }
 
     definition {
@@ -53,7 +66,10 @@ pipelineJob('backend-integration-coverage') {
 
                     // As aspas simples preservam o parâmetro para sua
                     // substituição pelo Jenkins no momento da execução.
-                    branch('refs/heads/${BRANCH}')
+                    // O plugin Git expande o valor duas vezes: um SHA completo
+                    // fixa o commit e o padrão refs/heads/${BRANCH} vira a
+                    // ponta da branch. Vale para o Jenkinsfile e o checkout scm.
+                    branch('${GIT_COMMIT_SHA}')
                 }
             }
 
@@ -70,6 +86,11 @@ pipelineJob('backend-build') {
 
     parameters {
         stringParam('BRANCH', 'Branch-Jose', 'Branch publicada no GitHub, sem origin/.')
+        stringParam(
+            'GIT_COMMIT_SHA',
+            'refs/heads/${BRANCH}',
+            'SHA completo do commit a executar, preenchido pela pipeline completa. Na execução manual, mantenha refs/heads/${BRANCH} para usar a ponta de BRANCH.'
+        )
     }
 
     definition {
@@ -79,7 +100,7 @@ pipelineJob('backend-build') {
                     remote {
                         url('https://github.com/C14-Inatel-2026-2/Controle_Financeiro-C14.git')
                     }
-                    branch('refs/heads/${BRANCH}')
+                    branch('${GIT_COMMIT_SHA}')
                 }
             }
             scriptPath('backend/Jenkinsfile')
@@ -93,6 +114,11 @@ pipelineJob('backend-deploy') {
 
     parameters {
         stringParam('BRANCH', 'Branch-Donatto', 'Branch publicada no GitHub, sem origin/.')
+        stringParam(
+            'GIT_COMMIT_SHA',
+            'refs/heads/${BRANCH}',
+            'SHA completo do commit a executar, preenchido pela pipeline completa. Na execução manual, mantenha refs/heads/${BRANCH} para usar a ponta de BRANCH.'
+        )
     }
 
     definition {
@@ -102,7 +128,7 @@ pipelineJob('backend-deploy') {
                     remote {
                         url('https://github.com/C14-Inatel-2026-2/Controle_Financeiro-C14.git')
                     }
-                    branch('refs/heads/${BRANCH}')
+                    branch('${GIT_COMMIT_SHA}')
                 }
             }
             scriptPath('backend/Jenkinsfile.deploy')
@@ -115,7 +141,35 @@ pipelineJob('backend-unit-igor') {
     description('Testes unitários do backend com relatório JUnit para a branch informada.')
     parameters {
         stringParam('BRANCH', 'Branch-Igor', 'Nome exato da branch publicada no GitHub, sem origin/.')
+        stringParam(
+            'GIT_COMMIT_SHA',
+            'refs/heads/${BRANCH}',
+            'SHA completo do commit a executar, preenchido pela pipeline completa. Na execução manual, mantenha refs/heads/${BRANCH} para usar a ponta de BRANCH.'
+        )
     }
+    definition {
+        cpsScm {
+            scm {
+                git {
+                    remote {
+                        url('https://github.com/C14-Inatel-2026-2/Controle_Financeiro-C14.git')
+                    }
+                    branch('${GIT_COMMIT_SHA}')
+                }
+            }
+            scriptPath('backend/Jenkinsfile.unit')
+            lightweight(false)
+        }
+    }
+}
+
+pipelineJob('pipeline-completa') {
+    description('Executa os cinco jobs do projeto: builds, testes e deploy, nessa ordem.')
+
+    parameters {
+        stringParam('BRANCH', 'main', 'Branch publicada no GitHub, sem origin/.')
+    }
+
     definition {
         cpsScm {
             scm {
@@ -126,7 +180,7 @@ pipelineJob('backend-unit-igor') {
                     branch('refs/heads/${BRANCH}')
                 }
             }
-            scriptPath('backend/Jenkinsfile.unit')
+            scriptPath('Jenkinsfile')
             lightweight(false)
         }
     }

@@ -11,10 +11,10 @@ O pipeline está em `backend/Jenkinsfile.unit`. O agente deve estar conectado co
 1. Envie os arquivos desta configuração para `Branch-Igor` no GitHub.
 2. Abra http://localhost:8081 e entre com seu usuário local.
 3. Abra `backend-unit-igor` > **Build with Parameters**.
-4. Use `Branch-Igor` no parâmetro `BRANCH` e inicie o build.
+4. Use `Branch-Igor` no parâmetro `BRANCH`, mantenha `GIT_COMMIT_SHA` com o valor padrão `refs/heads/${BRANCH}` e inicie o build.
 5. Confira o commit no console, o resultado do build e **Test Result**.
 
-O job faz checkout da branch publicada, instala com `npm ci` e executa `npm run test:unit`. Arquivos locais ainda não enviados não entram na execução. O relatório `backend/reports/unit/junit.xml` é publicado e arquivado mesmo quando os testes falham. Uma saída não zero do comando faz o build falhar.
+O job também é chamado pelo estágio Testes da [pipeline completa](README.md#5-executar-a-pipeline-completa); nesse caso, recebe o commit escolhido pela pipeline em `GIT_COMMIT_SHA`. Na execução manual, o job faz checkout da branch publicada, instala com `npm ci` e executa `npm run test:unit`. Arquivos locais ainda não enviados não entram na execução. O relatório `backend/reports/unit/junit.xml` é publicado e arquivado mesmo quando os testes falham. Uma saída não zero do comando faz o build falhar.
 
 ## Demonstrar uma falha
 

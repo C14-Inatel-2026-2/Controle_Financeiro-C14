@@ -1,6 +1,6 @@
 # Jenkins: instalação e uso
 
-Este guia prepara o Jenkins do projeto e explica como executar o build do frontend. Os comandos usam PowerShell e devem ser executados na raiz do repositório, exceto o comando inicial de clonagem.
+Este guia prepara o Jenkins do projeto e explica como executar o build do frontend e a pipeline completa, que encadeia os cinco jobs do projeto. Os comandos usam PowerShell e devem ser executados na raiz do repositório, exceto o comando inicial de clonagem.
 
 O ambiente utiliza contêineres Linux no Docker Desktop. Não é necessário instalar o Jenkins como serviço do Windows nem instalar Java, Node.js ou npm no computador apenas para executar este pipeline: essas ferramentas estão nas imagens do projeto.
 
@@ -49,7 +49,7 @@ Os três resultados devem ser `True`. Não execute os próximos comandos de dent
 
 ## 3. Primeira instalação
 
-Execute esta seção uma vez para cada instalação. Se já criou o administrador e conectou o agente, vá para [Uso diário](#5-uso-diário).
+Execute esta seção uma vez para cada instalação. Se já criou o administrador e conectou o agente, vá para [Uso diário](#6-uso-diário).
 
 ### 3.1. Iniciar somente o controlador
 
@@ -147,8 +147,9 @@ O job `frontend-build` é criado automaticamente a partir da configuração, mas
 2. Abra **frontend-build**.
 3. Clique em **Construir com parâmetros / Build with Parameters**.
 4. Informe o nome exato da branch no campo **BRANCH**, por exemplo, `main` ou `Branch-Gustavo`. Não use o prefixo `origin/` nem espaços antes ou depois do nome.
-5. Clique em **Construir / Build**.
-6. Abra a execução no histórico e consulte **Saída do console / Console Output**.
+5. Mantenha o campo **GIT_COMMIT_SHA** com o valor padrão `refs/heads/${BRANCH}`, para usar a ponta da branch informada. Veja [Execução manual dos jobs individuais](#execução-manual-dos-jobs-individuais).
+6. Clique em **Construir / Build**.
+7. Abra a execução no histórico e consulte **Saída do console / Console Output**.
 
 A branch precisa estar publicada no repositório `C14-Inatel-2026-2/Controle_Financeiro-C14` e conter `frontend/Jenkinsfile`, com `J` maiúsculo. Faça commit e push das alterações que deseja verificar antes de iniciar o build.
 
@@ -163,14 +164,86 @@ O pipeline executa as seguintes etapas:
 | Build do frontend | Executa `npm run build`, que faz a compilação TypeScript e o build com Vite. |
 | Guardar arquivos gerados | Arquiva o conteúdo de `frontend/dist` para consulta e download no Jenkins. |
 
-O resultado esperado é `Finished: SUCCESS`, com os arquivos disponíveis na seção de artefatos da execução. Esse job não executa os testes nem publica a aplicação; essas atividades são feitas por jobs próprios e não fazem parte deste guia. Consulte os guias específicos:
+O resultado esperado é `Finished: SUCCESS`, com os arquivos disponíveis na seção de artefatos da execução. Esse job não executa os testes nem publica a aplicação; essas atividades são feitas por jobs próprios, que podem ser executados individualmente ou em sequência pela [pipeline completa](#5-executar-a-pipeline-completa). Consulte os guias específicos:
 
 - [Testes unitários do backend](unitarios.md): job `backend-unit-igor`.
 - [Integração e cobertura do backend](backend-integracao-cobertura.md): job `backend-integration-coverage`.
+- [Deploy local do backend](../ci-cd/deploy.md): job `backend-deploy`.
 
 Para registrar a validação de um PR, anote o número da execução, a branch e o commit indicado no console. Um resultado anterior não valida novos commits enviados depois. O endereço `localhost` aponta para a máquina de quem o abre: ele não permite que um colega veja seu histórico. Compartilhe evidências sem credenciais ou peça que o colega reproduza a execução.
 
-## 5. Uso diário
+## 5. Executar a pipeline completa
+
+O job `pipeline-completa`, definido pelo [Jenkinsfile](../../Jenkinsfile) da raiz do repositório, executa os cinco jobs do projeto em sequência, todos sobre o mesmo commit:
+
+| Estágio | Jobs | O que acontece |
+| --- | --- | --- |
+| Resolver commit | — | Obtém o SHA completo da ponta de `BRANCH` uma única vez. |
+| Build | `frontend-build` e `backend-build`, em paralelo | Compilam o frontend e o backend e arquivam os arquivos gerados. |
+| Testes | `backend-unit-igor` e `backend-integration-coverage`, em paralelo | Publicam o JUnit dos unitários, o JUnit de integração e a cobertura. |
+| Deploy | `backend-deploy` | Testa, compila e publica o backend no agente, preservando o SQLite. Veja o [guia do deploy](../ci-cd/deploy.md). |
+
+Um estágio só começa se o anterior terminou com sucesso. Se qualquer job falhar, a pipeline termina em `FAILURE` e os estágios seguintes, inclusive o Deploy, não são executados. Dentro de um estágio paralelo, o outro job continua até o fim, para que os dois resultados fiquem registrados.
+
+A pipeline também é manual: não há gatilho por push ou PR.
+
+### Pré-requisitos
+
+- Ambiente instalado e agente conectado, conforme a [seção 3](#3-primeira-instalação).
+- Imagem do controlador reconstruída depois de atualizar `infra/jenkins/jobs.groovy`, como em [Aplicar atualizações do ambiente](#aplicar-atualizações-do-ambiente). Confira que os cinco jobs mostram os parâmetros **BRANCH** e **GIT_COMMIT_SHA** em **Build with Parameters**. Um job chamado pela pipeline sem esse parâmetro declarado falha de propósito, em vez de executar outro commit.
+- A branch escolhida publicada no GitHub, contendo o `Jenkinsfile` da raiz, os cinco Jenkinsfiles e `infra/jenkins/confirmar-revisao.groovy`.
+
+### Como executar
+
+1. Faça commit e push do que deseja verificar.
+2. Abra [o Jenkins](http://localhost:8081/), abra **pipeline-completa** e clique em **Construir com parâmetros / Build with Parameters**.
+3. Informe a branch em **BRANCH**, sem `origin/` e sem espaços. O padrão é `main`.
+4. Clique em **Construir / Build** e acompanhe a execução em **Saída do console / Console Output**.
+5. Ao final, anote o número da execução da pipeline, o commit escolhido e o número e o resultado de cada um dos cinco jobs.
+
+O agente tem um único executor. O orquestrador não o ocupa enquanto espera: ele roda no controlador e aloca o agente só durante o estágio Resolver commit. Por isso, os jobs de um mesmo estágio paralelo entram na fila e executam um de cada vez. O limite da pipeline inteira é de 60 minutos. Evite iniciar jobs individuais enquanto a pipeline estiver em execução, pois eles disputam o mesmo executor.
+
+### Como o SHA é repassado e conferido
+
+1. **Resolução:** o orquestrador valida o nome de `BRANCH` e executa `git ls-remote` no agente. A saída precisa conter exatamente um SHA de 40 caracteres hexadecimais para `refs/heads/<BRANCH>`. Caso contrário, a pipeline falha sem chamar nenhum job. O console mostra `Commit escolhido: <sha>`, e a descrição da execução mostra `<branch> @ <8 primeiros caracteres>`.
+2. **Repasse:** os cinco jobs recebem `BRANCH` e `GIT_COMMIT_SHA=<sha>`.
+3. **Carregamento e checkout:** em cada job, o [jobs.groovy](../../infra/jenkins/jobs.groovy) usa `${GIT_COMMIT_SHA}` como revisão do Git. O mesmo SHA é usado para carregar o Jenkinsfile do job e para o `checkout scm` da etapa Obter código. No console, a obtenção do código aparece como `Checking out Revision <sha> (detached)`.
+4. **Conferência:** logo após o checkout, cada Jenkinsfile carrega [confirmar-revisao.groovy](../../infra/jenkins/confirmar-revisao.groovy), que compara `git rev-parse HEAD` com o SHA recebido. Se forem iguais, o console mostra `Revisão confirmada: HEAD <sha> é o GIT_COMMIT_SHA solicitado`. Se forem diferentes, o job falha antes de instalar dependências.
+
+Assim, um push feito durante a execução não muda o código usado pelos jobs seguintes. Se o commit escolhido deixar de existir no GitHub, por exemplo após um force-push, o job falha: não há substituição silenciosa pela ponta atual da branch.
+
+O deploy compila o backend novamente, a partir do mesmo SHA; ele não reaproveita os arquivos arquivados pelo `backend-build`.
+
+### Execução manual dos jobs individuais
+
+Os cinco jobs continuam podendo ser executados sozinhos. Na execução manual:
+
+- Mantenha **GIT_COMMIT_SHA** com o valor padrão `refs/heads/${BRANCH}`. O plugin Git substitui `${BRANCH}` e usa a ponta da branch informada, como antes da pipeline. O console mostra `Execução manual sem SHA: HEAD <sha> é a ponta de <branch>`.
+- Para repetir um commit específico, informe o SHA completo, com 40 caracteres hexadecimais minúsculos. Valores abreviados ou inválidos fazem o job falhar.
+- Não deixe o campo vazio. Com o campo vazio, o plugin Git considera qualquer branch antes de o Jenkinsfile ser carregado.
+
+A substituição de `${BRANCH}` dentro do valor de `GIT_COMMIT_SHA` depende de o plugin Git expandir variáveis duas vezes ao escolher a revisão, comportamento confirmado no código da versão `git:5.10.1`, fixada em [plugins.txt](../../infra/jenkins/plugins.txt). Ao atualizar o plugin, repita uma execução manual sem SHA e uma execução da pipeline.
+
+### Validações registradas
+
+Validações manuais realizadas pela equipe em 17/10/2026, numa instância local já existente:
+
+| Validação | Branch e commit | Resultado registrado |
+| --- | --- | --- |
+| Sucesso | `Branch-Donatto`, `31c1aa31647bb2f105ebc5f3556940353980a1c9` | Os cinco jobs passaram usando o mesmo SHA: `frontend-build` #1, `backend-build` #3, `backend-unit-igor` #1, `backend-integration-coverage` #4 e `backend-deploy` #1. |
+| Bloqueio do deploy | `ci/validar-bloqueio-deploy`, `de977207098134a4820f4560226075486ad2781d` | Com um teste unitário que falha de propósito, os builds passaram, e `backend-unit-igor` #2 e `backend-integration-coverage` #5 falharam. A falha também no job de integração é esperada, pois a etapa de cobertura executa a suíte completa, que inclui os unitários. A pipeline terminou em `FAILURE` sem executar o estágio Deploy. |
+| Persistência do SQLite | `Branch-Donatto` | Um registro fictício criado no banco publicado manteve o mesmo id e nome após uma nova execução da pipeline com `SUCCESS`. Detalhes no [guia do deploy](../ci-cd/deploy.md#validação-da-persistência). |
+
+A branch `ci/validar-bloqueio-deploy` existe apenas para essa validação e não deve ser integrada à `main`.
+
+Ainda não foram realizados:
+
+- **Execução em `main`:** executar a pipeline com `BRANCH=main`, depois de integrar as branches, e registrar os resultados.
+- **Instância limpa:** confirmar que uma instalação nova, construída a partir da `main`, cria os seis jobs com os parâmetros e plugins necessários.
+- **Gatilhos automáticos:** a pipeline e os jobs continuam sendo executados manualmente.
+- **Uso do banco pela API:** a aplicação publicada ainda não lê nem grava no SQLite, então cadastro e persistência pela API não foram validados.
+
+## 6. Uso diário
 
 ### Ligar o ambiente
 
@@ -196,7 +269,7 @@ docker compose -f compose.jenkins.yaml stop
 
 Esse comando para os contêineres sem removê-los. Os volumes preservam usuários, configurações, histórico e artefatos ainda retidos pelo Jenkins. O pipeline limita o histórico a dez execuções; não use o Jenkins como único armazenamento de evidências necessárias para a entrega.
 
-Não use `docker compose down -v` para encerrar o trabalho: a opção `-v` remove os volumes do projeto e pode apagar os dados da instalação. Não é necessário manter os contêineres ligados entre as sessões. Enquanto estiverem parados, novos commits, pushes ou PRs não iniciarão builds; este job não possui gatilhos automáticos.
+Não use `docker compose down -v` para encerrar o trabalho: a opção `-v` remove os volumes do projeto e pode apagar os dados da instalação. Não é necessário manter os contêineres ligados entre as sessões. Enquanto estiverem parados, novos commits, pushes ou PRs não iniciarão builds; nenhum job do projeto possui gatilhos automáticos.
 
 ### Aplicar atualizações do ambiente
 
@@ -210,9 +283,9 @@ docker compose -f compose.jenkins.yaml up -d --build
 
 O Compose recria os contêineres quando necessário e preserva os volumes. Alterar arquivos copiados para a imagem, como `jenkins.yaml` ou `jobs.groovy`, exige a reconstrução; apenas reiniciar o contêiner não atualiza esses arquivos.
 
-Mudanças apenas no código do frontend ou no arquivo do pipeline não exigem reconstruir o ambiente: faça push para a branch e execute o job novamente. As definições de jobs devem continuar sendo alteradas no repositório; edições feitas só pela interface podem ser substituídas quando o JCasC reaplicar a configuração.
+Mudanças apenas no código ou nos Jenkinsfiles não exigem reconstruir o ambiente: faça push para a branch e execute o job novamente. As definições de jobs devem continuar sendo alteradas no repositório; edições feitas só pela interface podem ser substituídas quando o JCasC reaplicar a configuração.
 
-## 6. Arquivos e responsabilidades
+## 7. Arquivos e responsabilidades
 
 | Arquivo | Responsabilidade |
 | --- | --- |
@@ -220,15 +293,20 @@ Mudanças apenas no código do frontend ou no arquivo do pipeline não exigem re
 | [infra/jenkins/Dockerfile](../../infra/jenkins/Dockerfile) | Constrói a imagem do controlador com plugins e arquivos de configuração. |
 | [infra/jenkins/plugins.txt](../../infra/jenkins/plugins.txt) | Define os plugins e suas versões. |
 | [infra/jenkins/jenkins.yaml](../../infra/jenkins/jenkins.yaml) | Aplica as configurações do Jenkins por JCasC e carrega os jobs. |
-| [infra/jenkins/jobs.groovy](../../infra/jenkins/jobs.groovy) | Cria os jobs manuais e seus parâmetros `BRANCH`. |
+| [infra/jenkins/jobs.groovy](../../infra/jenkins/jobs.groovy) | Cria os seis jobs manuais, com os parâmetros `BRANCH` e, nos cinco jobs chamados pela pipeline, `GIT_COMMIT_SHA`. |
+| [Jenkinsfile](../../Jenkinsfile) | Define a pipeline completa: resolve o commit e encadeia os cinco jobs. |
+| [infra/jenkins/confirmar-revisao.groovy](../../infra/jenkins/confirmar-revisao.groovy) | Confere, em cada job, se o código obtido é a revisão pedida. |
 | [infra/jenkins/agent/Dockerfile](../../infra/jenkins/agent/Dockerfile) | Constrói o agente com Java, Git, Node.js e npm. |
 | [frontend/Jenkinsfile](../../frontend/Jenkinsfile) | Define as etapas do build do frontend. |
+| [backend/Jenkinsfile](../../backend/Jenkinsfile) | Define o build do backend. |
+| [backend/Jenkinsfile.unit](../../backend/Jenkinsfile.unit) | Define os testes unitários do backend. |
 | [backend/Jenkinsfile.integration](../../backend/Jenkinsfile.integration) | Define as etapas de integração e cobertura do backend. |
+| [backend/Jenkinsfile.deploy](../../backend/Jenkinsfile.deploy) | Define o deploy local do backend. |
 | `.secrets/jenkins-agent-secret.txt` | Armazena a credencial local do agente; não é versionado. |
 
 A porta `8081` é usada pelo navegador. Dentro da rede do Compose, o agente acessa o controlador em `http://jenkins:8080/`: `jenkins` é o nome do serviço e `8080` é sua porta interna. Não troque esse endereço por `localhost:8081`, pois `localhost` dentro do agente aponta para o próprio contêiner.
 
-## 7. Problemas comuns
+## 8. Problemas comuns
 
 | Sintoma | O que verificar |
 | --- | --- |
@@ -238,7 +316,8 @@ A porta `8081` é usada pelo navegador. Dentro da rede do Compose, o agente aces
 | Arquivo do segredo não encontrado | Confira a etapa 3.3 e a extensão exata do arquivo. Na primeira instalação, inicie somente `jenkins` até obter o segredo. |
 | Agente desconectado ou `Unauthorized` | Confira se o segredo pertence ao `agent-node-v2` desta instância, sem espaços nem BOM. Não use a senha do administrador. Após corrigir o arquivo, recrie somente o agente com o comando abaixo. |
 | Build fica aguardando um executor | Confirme que o agente está conectado, tem a label `node24` e não está ocupado com outro build. O controlador tem zero executores por configuração. |
-| Não encontra a revisão ou a branch | Confira a grafia do parâmetro `BRANCH` e se a branch foi enviada ao GitHub. |
+| Não encontra a revisão ou a branch | Confira a grafia do parâmetro `BRANCH` e se a branch foi enviada ao GitHub. Em execução manual, confira se `GIT_COMMIT_SHA` está com o valor padrão ou com um SHA completo existente. |
+| Job falha com `difere do GIT_COMMIT_SHA` ou `sem um GIT_COMMIT_SHA válido` | O código obtido não é o commit pedido, ou o job ainda não declara o parâmetro. Reconstrua a imagem do controlador para reaplicar `jobs.groovy` e execute novamente. |
 | Não encontra `frontend/Jenkinsfile` | Confira o caminho e as maiúsculas no GitHub, na branch selecionada, não apenas no computador. |
 | O job não aparece | Confira o `COPY` de `jobs.groovy`, o bloco `jobs` no JCasC e se a imagem foi reconstruída após a alteração. Consulte os logs do controlador. |
 | `npm ci` falha | Leia o primeiro erro do console. Se o manifesto e o lockfile estiverem inconsistentes, corrija e versione os arquivos no projeto; não contorne a falha trocando o pipeline para `npm install`. Falhas de rede também devem ser verificadas. |
@@ -258,7 +337,7 @@ docker compose -f compose.jenkins.yaml logs --tail 100 jenkins
 
 Os logs da primeira inicialização podem conter a senha de desbloqueio. Revise e remova credenciais antes de compartilhar qualquer trecho. Não apague os volumes como primeira tentativa de resolver um erro.
 
-## 8. Referências
+## 9. Referências
 
 - [Instalação do Jenkins em Docker](https://www.jenkins.io/doc/book/installing/docker/).
 - [Imagem oficial do Jenkins: volumes, configuração e plugins](https://github.com/jenkinsci/docker/blob/master/README.md).

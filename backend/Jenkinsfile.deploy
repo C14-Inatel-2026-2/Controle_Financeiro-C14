@@ -32,8 +32,12 @@ pipeline {
                 // Limpa somente o workspace deste job, não a pasta de deploy.
                 deleteDir()
 
-                // Usa o repositório e a branch configurados no job.
+                // Usa o repositório e a revisão configurados no job: o
+                // GIT_COMMIT_SHA da pipeline completa ou a ponta de BRANCH.
                 checkout scm
+
+                // Falha se o HEAD não for a revisão pedida ao job.
+                load 'infra/jenkins/confirmar-revisao.groovy'
             }
         }
 
