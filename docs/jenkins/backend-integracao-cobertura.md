@@ -8,10 +8,10 @@ Este guia explica como executar o job `backend-integration-coverage`, que roda o
 | --- | --- |
 | Job | `backend-integration-coverage`, criado por [infra/jenkins/jobs.groovy](../../infra/jenkins/jobs.groovy) |
 | Pipeline | [backend/Jenkinsfile.integration](../../backend/Jenkinsfile.integration) |
-| Parâmetro | `BRANCH`, com valor padrão `Branch-Caio` |
+| Parâmetros | `BRANCH`, com valor padrão `Branch-Caio`, e `GIT_COMMIT_SHA`, com valor padrão `refs/heads/${BRANCH}` |
 | Repositório usado pelo job | `https://github.com/C14-Inatel-2026-2/Controle_Financeiro-C14.git` |
 | Agente | Label `node24` (`agent-node-v2`, Node.js `24.21.0`, conforme [infra/jenkins/agent/Dockerfile](../../infra/jenkins/agent/Dockerfile)) |
-| Gatilho | Somente manual; não há execução automática por push ou PR |
+| Gatilho | Manual, ou pela [pipeline completa](README.md#5-executar-a-pipeline-completa); não há execução automática por push ou PR |
 | Tempo máximo | 15 minutos |
 | Histórico | As 10 execuções mais recentes, com seus relatórios e artefatos |
 
@@ -29,7 +29,7 @@ A cobertura segue [backend/vitest.config.mts](../../backend/vitest.config.mts): 
 
 ### No Jenkins
 
-- Ambiente instalado conforme as seções 3 e 5 do [guia de instalação](README.md), com `agent-node-v2` conectado.
+- Ambiente instalado conforme as seções 3 e 6 do [guia de instalação](README.md), com `agent-node-v2` conectado.
 - Imagem do controlador reconstruída depois de atualizar `infra/jenkins`. Os plugins `junit` e `htmlpublisher`, usados por este job, estão em [infra/jenkins/plugins.txt](../../infra/jenkins/plugins.txt); uma instância construída antes dessa inclusão não os terá. Use o comando de [Aplicar atualizações do ambiente](README.md#aplicar-atualizações-do-ambiente).
 - Branch publicada no repositório `C14-Inatel-2026-2/Controle_Financeiro-C14`, contendo `backend/Jenkinsfile.integration` e os scripts `test:integration` e `test:coverage`.
 
@@ -51,7 +51,7 @@ O resultado esperado para o Node é `v24.x`, idealmente `v24.21.0`.
 1. Faça commit e push do que deseja verificar. O job busca a branch no GitHub; arquivos locais não enviados não entram na execução.
 2. Abra [o Jenkins](http://localhost:8081/) e entre com seu usuário local.
 3. Abra **backend-integration-coverage** e clique em **Construir com parâmetros / Build with Parameters**.
-4. Informe o nome exato da branch em **BRANCH**, por exemplo `Branch-Caio` ou `main`, sem `origin/` e sem espaços.
+4. Informe o nome exato da branch em **BRANCH**, por exemplo `Branch-Caio` ou `main`, sem `origin/` e sem espaços. Mantenha **GIT_COMMIT_SHA** com o valor padrão `refs/heads/${BRANCH}`, ou informe um SHA completo para repetir um commit específico.
 5. Clique em **Construir / Build** e acompanhe a execução em **Saída do console / Console Output**.
 6. Ao final, anote o número da execução, a branch, o commit mostrado no console e o resultado (`SUCCESS` ou `FAILURE`).
 
@@ -61,7 +61,7 @@ O valor padrão de `BRANCH` é `Branch-Caio`. Confira o campo antes de iniciar, 
 
 | Etapa | O que faz | Se falhar |
 | --- | --- | --- |
-| Obter código | Apaga o workspace do job e faz checkout da branch informada. | O build termina em `FAILURE`; confira a grafia de `BRANCH` e se a branch foi enviada. |
+| Obter código | Apaga o workspace do job, faz checkout da revisão pedida (o SHA recebido ou a ponta de `BRANCH`) e confere que o `HEAD` é essa revisão. | O build termina em `FAILURE`; confira a grafia de `BRANCH`, o valor de `GIT_COMMIT_SHA` e se a branch foi enviada. |
 | Instalar dependências | Executa `npm ci` em `backend`, conforme o `package-lock.json`. | O pipeline para. Nenhum teste roda e nenhum relatório é publicado. |
 | Testes de integração | Executa `npm run test:integration` e gera `backend/reports/integration.xml`. | `catchError` marca a etapa e o build como `FAILURE`, mas a próxima etapa ainda roda, para servir de diagnóstico. |
 | Cobertura completa | Executa `npm run test:coverage` com toda a suíte. | O build termina em `FAILURE`. |
@@ -136,27 +136,23 @@ Os resultados abaixo foram registrados em validações anteriores da equipe. Ele
 | Falha proposital | Branch separada | Expectativa de `/health` alterada de `200` para `201`; 4 testes de integração passaram, 1 falhou, e o build terminou em `FAILURE`. |
 | Nova execução após a falha | `Branch-Caio` | Passou novamente. |
 
-Esse registro mostra que o job identificou uma falha real de integração e voltou a passar sem ela. Não comprova o funcionamento da pipeline completa do projeto.
+Esse registro mostra que o job identificou uma falha real de integração e voltou a passar sem ela. As validações da pipeline completa estão registradas no [guia do Jenkins](README.md#validações-registradas).
 
-## 8. Pendências na pipeline completa
+## 8. Relação com a pipeline completa
 
-Os jobs atuais são independentes entre si e executados manualmente:
+O job continua podendo ser executado sozinho, como descrito acima, e também é chamado pelo estágio Testes da [pipeline completa](README.md#5-executar-a-pipeline-completa), em paralelo com `backend-unit-igor`. Uma falha deste job faz a pipeline terminar em `FAILURE` e impede o deploy.
 
-| Job | Pipeline | `BRANCH` padrão |
-| --- | --- | --- |
-| `frontend-build` | [frontend/Jenkinsfile](../../frontend/Jenkinsfile) | `Branch-Gustavo` |
-| `backend-unit-igor` | [backend/Jenkinsfile.unit](../../backend/Jenkinsfile.unit) | `Branch-Igor` |
-| `backend-integration-coverage` | [backend/Jenkinsfile.integration](../../backend/Jenkinsfile.integration) | `Branch-Caio` |
-| `backend-build` | [backend/Jenkinsfile](../../backend/Jenkinsfile) | `Branch-Jose` |
-| `backend-deploy` | [backend/Jenkinsfile.deploy](../../backend/Jenkinsfile.deploy) | `Branch-Donatto` |
+| Job | Pipeline | `BRANCH` padrão | Estágio da pipeline completa |
+| --- | --- | --- | --- |
+| `frontend-build` | [frontend/Jenkinsfile](../../frontend/Jenkinsfile) | `Branch-Gustavo` | Build |
+| `backend-build` | [backend/Jenkinsfile](../../backend/Jenkinsfile) | `Branch-Jose` | Build |
+| `backend-unit-igor` | [backend/Jenkinsfile.unit](../../backend/Jenkinsfile.unit) | `Branch-Igor` | Testes |
+| `backend-integration-coverage` | [backend/Jenkinsfile.integration](../../backend/Jenkinsfile.integration) | `Branch-Caio` | Testes |
+| `backend-deploy` | [backend/Jenkinsfile.deploy](../../backend/Jenkinsfile.deploy) | `Branch-Donatto` | Deploy |
 
-Ainda falta validar:
+Os valores padrão de `BRANCH` valem só para a execução manual: a pipeline repassa a sua própria `BRANCH` e o mesmo `GIT_COMMIT_SHA` aos cinco jobs. O [guia do Jenkins](README.md#validações-registradas) registra as validações da pipeline e o que ainda falta validar, como a execução em `main` e uma instância limpa.
 
-- **Encadeamento:** nenhum job dispara outro. O `backend-deploy` executa `npm test` por conta própria antes de publicar e não depende do resultado deste job.
-- **Pipeline única:** o `Jenkinsfile` da raiz do repositório está vazio. Não há uma definição que execute build, testes, cobertura e deploy em sequência.
+Também continuam pendentes para este job:
+
 - **Gatilhos:** não há execução automática por push ou PR.
-- **Execução em `main`:** após integrar as branches, executar este job e os demais com `BRANCH=main`, para o mesmo commit, e registrar os resultados.
-- **Instância limpa:** confirmar que uma instalação nova, construída a partir da `main`, cria todos os jobs com os plugins necessários.
 - **Critérios de cobertura:** não há limite mínimo de cobertura configurado; o job publica o relatório, mas não falha por cobertura baixa.
-
-Até que esses pontos sejam verificados, os resultados de cada job valem apenas para a branch e o commit executados.

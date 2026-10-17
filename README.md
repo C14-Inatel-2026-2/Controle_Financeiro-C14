@@ -10,9 +10,10 @@ Sistema web para controle financeiro desenvolvido para o projeto de Engenharia d
 
 ## Jenkins
 
-Consulte o [guia de instalação e uso do Jenkins](docs/jenkins/README.md) para preparar o ambiente com Docker e executar manualmente o build do frontend, escolhendo a branch em cada execução.
+Consulte o [guia de instalação e uso do Jenkins](docs/jenkins/README.md) para preparar o ambiente com Docker, executar manualmente o build do frontend e executar a [pipeline completa](docs/jenkins/README.md#5-executar-a-pipeline-completa), que encadeia builds, testes e deploy sobre um mesmo commit.
 
 Guias dos jobs do backend:
 
 - [Testes unitários](docs/jenkins/unitarios.md)
 - [Testes de integração e cobertura](docs/jenkins/backend-integracao-cobertura.md)
+- [Deploy local](docs/ci-cd/deploy.md)
