@@ -131,3 +131,26 @@ pipelineJob('backend-unit-igor') {
         }
     }
 }
+
+pipelineJob('pipeline-completa') {
+    description('Executa os cinco jobs do projeto: builds, testes e deploy, nessa ordem.')
+
+    parameters {
+        stringParam('BRANCH', 'main', 'Branch publicada no GitHub, sem origin/.')
+    }
+
+    definition {
+        cpsScm {
+            scm {
+                git {
+                    remote {
+                        url('https://github.com/C14-Inatel-2026-2/Controle_Financeiro-C14.git')
+                    }
+                    branch('refs/heads/${BRANCH}')
+                }
+            }
+            scriptPath('Jenkinsfile')
+            lightweight(false)
+        }
+    }
+}
