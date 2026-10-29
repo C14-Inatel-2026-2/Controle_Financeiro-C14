@@ -181,3 +181,308 @@ button:hover {
     display: none;
   }
 }
+/* ===== Página inicial (pública) ===== */
+
+.pi-pagina {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: radial-gradient(90% 70% at 15% 0%, rgba(69, 199, 154, 0.1), transparent 55%), #0f1115;
+}
+
+.pi-topo {
+  height: 72px;
+  flex-shrink: 0;
+  padding: 0 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.pi-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: "Space Grotesk", system-ui, sans-serif;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.pi-acoes-topo {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+/* O botão de "Entrar" no topo é só texto, sem caixa. */
+.pi-link {
+  height: auto;
+  margin: 0;
+  padding: 0;
+  background: none;
+  border: 0;
+  color: #c9ced8;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 400;
+  cursor: pointer;
+}
+
+.pi-link:hover {
+  background: none;
+  color: #e8eaef;
+}
+
+.pi-botao {
+  height: 40px;
+  margin: 0;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 8px;
+  background: #45c79a;
+  color: #0b1a14;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.pi-botao:hover {
+  background: #6fdcb4;
+}
+
+.pi-botao-grande {
+  height: 48px;
+  padding: 0 26px;
+  font-size: 16px;
+}
+
+.pi-botao-secundario {
+  height: 48px;
+  margin: 0;
+  padding: 0 26px;
+  border: 1px solid #2a2f3a;
+  border-radius: 8px;
+  background: none;
+  color: #c9ced8;
+  font-family: inherit;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.pi-botao-secundario:hover {
+  background: #171a21;
+  border-color: #3a404d;
+}
+
+.pi-conteudo {
+  flex: 1;
+  padding: 0 56px 56px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.pi-hero {
+  display: flex;
+  align-items: center;
+  gap: 56px;
+}
+
+.pi-texto {
+  width: 560px;
+  flex-shrink: 0;
+}
+
+.pi-texto h1 {
+  font-size: 54px;
+  line-height: 1.03;
+  letter-spacing: -0.03em;
+}
+
+.pi-descricao {
+  margin-top: 20px;
+  max-width: 460px;
+  font-size: 17px;
+  line-height: 1.55;
+  color: #9aa1ad;
+}
+
+.pi-cta {
+  margin-top: 32px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+/* Prévia do dashboard */
+.pi-previa {
+  flex: 1;
+  padding: 24px;
+  background: #171a21;
+  border: 1px solid #262a33;
+  border-radius: 14px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+}
+
+.pi-previa-topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.pi-rotulo {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  color: #9aa1ad;
+}
+
+.pi-mes {
+  font-size: 12px;
+  color: #5f6673;
+}
+
+.pi-saldo {
+  margin-top: 8px;
+  font-family: "Space Grotesk", system-ui, sans-serif;
+  font-size: 34px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.pi-resumo {
+  margin-top: 20px;
+  display: flex;
+  gap: 12px;
+}
+
+.pi-resumo-item {
+  flex: 1;
+  padding: 12px 14px;
+  background: #0f1115;
+  border: 1px solid #1e222a;
+  border-radius: 10px;
+}
+
+.pi-resumo-titulo {
+  font-size: 11px;
+  color: #9aa1ad;
+}
+
+.pi-receita,
+.pi-despesa {
+  margin-top: 4px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.pi-receita {
+  color: #45c79a;
+}
+
+.pi-despesa {
+  color: #f2766b;
+}
+
+.pi-barras {
+  margin-top: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pi-barra {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: #c9ced8;
+}
+
+.pi-barra span {
+  width: 78px;
+  flex-shrink: 0;
+}
+
+.pi-trilho {
+  flex: 1;
+  height: 7px;
+  border-radius: 4px;
+  background: #1e222a;
+}
+
+.pi-preenchimento {
+  height: 7px;
+  border-radius: 4px;
+  background: #45c79a;
+}
+
+/* Os três recursos embaixo */
+.pi-recursos {
+  margin-top: 64px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.pi-recurso {
+  display: flex;
+  gap: 14px;
+}
+
+.pi-icone {
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border-radius: 10px;
+  background: rgba(69, 199, 154, 0.12);
+  color: #45c79a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pi-recurso-titulo {
+  font-family: "Space Grotesk", system-ui, sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.pi-recurso-texto {
+  margin-top: 4px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #9aa1ad;
+}
+
+/* Celular: uma coluna, sem a prévia */
+@media (max-width: 900px) {
+  .pi-topo,
+  .pi-conteudo {
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+
+  .pi-hero {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .pi-texto {
+    width: 100%;
+  }
+
+  .pi-texto h1 {
+    font-size: 38px;
+  }
+
+  .pi-previa {
+    display: none;
+  }
+
+  .pi-recursos {
+    grid-template-columns: 1fr;
+  }
+}
