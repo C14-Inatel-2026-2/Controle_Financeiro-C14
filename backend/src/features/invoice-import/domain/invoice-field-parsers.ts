@@ -61,47 +61,56 @@ export function parseAmountInCents(
   lineNumber: number,
   format: InvoiceAmountFormat,
 ): number {
-  const trimmedValue = value.trim();
+  // Somente o prefixo monetário conhecido pode ser removido.
+  const trimmedValue = value.trim().replace(/^R\$\s*/, "");
+
   const isParenthesized = /^\(.*\)$/.test(trimmedValue);
-  let normalized = trimmedValue.replace(/[^\d,.-]/g, "");
 
-  if (format === "pt-BR") {
-    normalized = normalized.replace(/\./g, "").replace(",", ".");
-  } else if (format === "en-US") {
-    normalized = normalized.replace(/,/g, "");
-  } else {
-    normalized = normalizeAutomaticAmount(normalized);
+  const numericValue = isParenthesized
+    ? trimmedValue.slice(1, -1).trim()
+    : trimmedValue;
+
+  const brazilianPattern =
+    /^-?(?:\d+|\d{1,3}(?:\.\d{3})+)(?:,\d{1,2})?$/;
+
+  const americanPattern =
+    /^-?(?:\d+|\d{1,3}(?:,\d{3})+)(?:\.\d{1,2})?$/;
+
+  let effectiveFormat = format;
+
+  if (format === "auto") {
+    effectiveFormat = brazilianPattern.test(numericValue)
+      ? "pt-BR"
+      : "en-US";
   }
 
-  const parsedAmount = Number(normalized);
+  const pattern =
+    effectiveFormat === "pt-BR" ? brazilianPattern : americanPattern;
 
-  if (!Number.isFinite(parsedAmount)) {
-    throw new InvoiceParseError(`Valor inválido na linha ${lineNumber}: ${value}`);
+  // Parênteses já indicam estorno; um segundo sinal seria ambíguo.
+  if (
+    !pattern.test(numericValue) ||
+    (isParenthesized && numericValue.startsWith("-"))
+  ) {
+    throw new InvoiceParseError(
+      `Valor inválido na linha ${lineNumber}: ${value}`,
+    );
   }
 
-  // Os cálculos financeiros posteriores utilizam somente números inteiros.
-  const amountInCents = Math.round(parsedAmount * 100);
-  return isParenthesized ? -Math.abs(amountInCents) : amountInCents;
-}
+  const normalized =
+    effectiveFormat === "pt-BR"
+      ? numericValue.replace(/\./g, "").replace(",", ".")
+      : numericValue.replace(/,/g, "");
 
-function normalizeAutomaticAmount(value: string): string {
-  const lastComma = value.lastIndexOf(",");
-  const lastDot = value.lastIndexOf(".");
-  const decimalSeparatorIndex = Math.max(lastComma, lastDot);
+  // A montagem textual dos centavos evita arredondamento com ponto flutuante.
+  const [integerPart, decimalPart = ""] = normalized.split(".");
+  const amountInCents = Number(integerPart + decimalPart.padEnd(2, "0"));
 
-  if (decimalSeparatorIndex === -1) {
-    return value;
+  if (!Number.isSafeInteger(amountInCents)) {
+    throw new InvoiceParseError(
+      `Valor inválido na linha ${lineNumber}: ${value}`,
+    );
   }
 
-  const decimalPlaces = value.length - decimalSeparatorIndex - 1;
-
-  if (decimalPlaces !== 2) {
-    return value.replace(/[.,]/g, "");
-  }
-
-  const integerPart = value
-    .slice(0, decimalSeparatorIndex)
-    .replace(/[.,]/g, "");
-  const decimalPart = value.slice(decimalSeparatorIndex + 1);
-  return `${integerPart}.${decimalPart}`;
+  return isParenthesized ? -amountInCents : amountInCents;
 }
