@@ -39,4 +39,32 @@ describe("parseAmountInCents", () => {
       parseAmountInCents("abc", 7, "pt-BR");
     }).toThrow("Valor inválido na linha 7");
   });
+
+    it("aceita o prefixo R$ acompanhado de um valor válido", () => {
+    const resultado = parseAmountInCents("R$ 125,90", 2, "pt-BR");
+
+    expect(resultado).toBe(12590);
+  });
+
+  it("converte valores no formato americano", () => {
+    const resultado = parseAmountInCents("1,234.56", 2, "en-US");
+
+    expect(resultado).toBe(123456);
+  });
+
+  it("identifica os formatos brasileiro e americano no modo automático", () => {
+    expect(
+      parseAmountInCents("1.234,56", 2, "auto"),
+    ).toBe(123456);
+
+    expect(
+      parseAmountInCents("1,234.56", 2, "auto"),
+    ).toBe(123456);
+  });
+
+  it("rejeita valores que ultrapassam o limite de precisão em centavos", () => {
+    expect(() => {
+      parseAmountInCents("90071992547409,92", 2, "pt-BR");
+    }).toThrow(InvoiceParseError);
+  });   
 });
