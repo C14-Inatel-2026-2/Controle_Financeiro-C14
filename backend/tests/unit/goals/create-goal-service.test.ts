@@ -7,6 +7,13 @@ import {
 import type { GoalRepository } from "../../../src/features/goals/domain/goal-repository.js";
 
 describe("createGoalService — com mock", () => {
+  it("propaga falha ao salvar, sem retornar uma meta como sucesso", async () => {
+    const repository = {
+      findByName: vi.fn().mockResolvedValue(null),
+      save: vi.fn().mockRejectedValue(new Error("Falha SQLite")),
+    } satisfies GoalRepository;
+    await expect(createGoalService("Viagem", 100, repository)).rejects.toThrow("Falha SQLite");
+  });
   it("salva uma nova meta quando o nome ainda não existe", async () => {
     const repository = {
       findByName: vi.fn<GoalRepository["findByName"]>().mockResolvedValue(null),

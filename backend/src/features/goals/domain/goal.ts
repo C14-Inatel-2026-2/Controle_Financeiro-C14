@@ -18,7 +18,7 @@ export class InvalidGoalTargetAmountError extends Error {
 }
 
 export function createGoal(name: string, targetAmountInCents: number): Goal {
-  const normalizedName = name.trim();
+  const normalizedName = typeof name === "string" ? name.trim() : "";
 
   if (normalizedName === "") {
     throw new InvalidGoalNameError();

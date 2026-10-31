@@ -181,3 +181,14 @@ button:hover {
     display: none;
   }
 }
+
+.navegacao { display: flex; gap: 24px; padding: 18px 32px; border-bottom: 1px solid #262a33; }
+.navegacao [aria-current="page"] { text-decoration: underline; }
+.pagina-metas { max-width: 900px; margin: 0 auto; padding: 32px; }
+.pagina-metas form { width: 100%; max-width: 420px; margin: 24px 0 40px; }
+.lista-metas { list-style: none; padding: 0; display: grid; gap: 16px; }
+.lista-metas li { padding: 20px; background: #13161c; border: 1px solid #262a33; border-radius: 8px; overflow-wrap: anywhere; }
+.lista-metas h3 { margin: 0 0 12px; }
+.lista-metas p { margin-bottom: 8px; }
+.lista-metas progress { width: 100%; accent-color: #45c79a; }
+button:disabled { opacity: 0.6; cursor: wait; }

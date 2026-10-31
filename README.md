@@ -118,3 +118,8 @@ Guias dos jobs do backend:
 - [Testes unitários](docs/jenkins/unitarios.md)
 - [Testes de integração e cobertura](docs/jenkins/backend-integracao-cobertura.md)
 - [Deploy local](docs/ci-cd/deploy.md)
+
+## US05 — Metas financeiras
+
+O fluxo de cadastro e consulta de metas, a decisão sobre progresso, o contrato da
+API e as instruções de execução estão em [US05 — Metas financeiras](docs/us05-metas-financeiras.md).
