@@ -66,5 +66,5 @@ describe("parseAmountInCents", () => {
     expect(() => {
       parseAmountInCents("90071992547409,92", 2, "pt-BR");
     }).toThrow(InvoiceParseError);
-  });   
+  });
 });
