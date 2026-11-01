@@ -121,5 +121,6 @@ Guias dos jobs do backend:
 
 ## US05 — Metas financeiras
 
-O fluxo de cadastro e consulta de metas, a decisão sobre progresso, o contrato da
-API e as instruções de execução estão em [US05 — Metas financeiras](docs/us05-metas-financeiras.md).
+Esta contribuição entrega somente o backend de cadastro e consulta de metas com
+SQLite e validação. A interface será integrada pelo Donnato; progresso dinâmico
+ainda não está implementado. Consulte o [contrato da API e os testes da US05](docs/us05-metas-financeiras.md).

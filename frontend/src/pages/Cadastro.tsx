@@ -6,7 +6,11 @@ import {
 
 const validador = new ValidadorDeCadastro();
 
-export function Cadastro() {
+type Props = {
+  aoEntrar: () => void;
+};
+
+export function Cadastro({ aoEntrar }: Props) {
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
@@ -97,7 +101,10 @@ export function Cadastro() {
           {sucesso && <p className="sucesso">Cadastro válido!</p>}
 
           <p className="rodape-form">
-            Já tem conta? <a href="#">Entrar</a>
+            Já tem conta?{" "}
+            <button type="button" className="ap-link" onClick={aoEntrar}>
+              Entrar
+            </button>
           </p>
         </form>
       </main>
