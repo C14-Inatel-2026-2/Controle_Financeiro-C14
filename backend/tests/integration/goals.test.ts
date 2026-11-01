@@ -19,7 +19,7 @@ afterEach(() => {
   rmSync(directory, { recursive: true, force: true });
 });
 const goal = { name: "Viagem", targetAmountInCents: 12345 };
-const app = () => createApp(createSqliteGoalRepository(db));
+const app = () => createApp({ goalCatalog: createSqliteGoalRepository(db) });
 
 describe("API e SQLite de metas", () => {
   it("lista vazia; cadastra e consulta com progresso zero mesmo após reabrir o banco", async () => {

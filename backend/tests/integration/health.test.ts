@@ -5,7 +5,7 @@ import { abrirBanco } from "../../src/database/conexao";
 import { createSqliteGoalRepository } from "../../src/features/goals/infrastructure/sqlite-goal-repository";
 
 const db = abrirBanco(":memory:");
-const app = createApp(createSqliteGoalRepository(db));
+const app = createApp({ goalCatalog: createSqliteGoalRepository(db) });
 afterAll(() => db.close());
 
 describe("GET /health", () => {
