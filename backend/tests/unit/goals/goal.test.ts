@@ -2,10 +2,14 @@ import { describe, expect, it } from "vitest"; //Testes sem mock
 
 import {
   createGoal,
+  InvalidGoalNameError,
   InvalidGoalTargetAmountError,
 } from "../../../src/features/goals/domain/goal.js";
 
 describe("createGoal — sem mock", () => {
+  it.each(["", " ", "\t\n"])("rejeita nome vazio: %j", (name) => {
+    expect(() => createGoal(name, 100)).toThrow(InvalidGoalNameError);
+  });
   it("cria uma meta válida e remove espaços externos do nome", () => {
     const goal = createGoal(" Viagem ", 100000);
 

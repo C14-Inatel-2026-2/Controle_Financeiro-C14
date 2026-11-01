@@ -1,6 +1,12 @@
-import { describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it } from "vitest";
 import request from "supertest";
-import { app } from "../../src/app";
+import { createApp } from "../../src/app";
+import { abrirBanco } from "../../src/database/conexao";
+import { createSqliteGoalRepository } from "../../src/features/goals/infrastructure/sqlite-goal-repository";
+
+const db = abrirBanco(":memory:");
+const app = createApp({ goalCatalog: createSqliteGoalRepository(db) });
+afterAll(() => db.close());
 
 describe("GET /health", () => {
   it("retorna status 200 com status ok", async () => {

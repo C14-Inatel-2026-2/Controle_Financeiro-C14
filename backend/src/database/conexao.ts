@@ -17,32 +17,53 @@ export function abrirBanco(caminho = "data/financeiro.sqlite"): DatabaseSync {
 
 export function migrarBanco(db: DatabaseSync): void {
   db.exec("CREATE TABLE IF NOT EXISTS migrations (versao INTEGER PRIMARY KEY)");
-  if (db.prepare("SELECT versao FROM migrations WHERE versao = 1").get()) return;
+  if (!db.prepare("SELECT versao FROM migrations WHERE versao = 1").get()) {
+    db.exec("BEGIN");
+    try {
+      db.exec(`
+        CREATE TABLE usuarios (
+          id INTEGER PRIMARY KEY,
+          nome TEXT NOT NULL CHECK (length(trim(nome)) > 0),
+          email TEXT NOT NULL COLLATE NOCASE UNIQUE CHECK (length(trim(email)) > 0),
+          senha_hash TEXT NOT NULL CHECK (length(senha_hash) > 0)
+        );
+        CREATE TABLE movimentacoes (
+          id INTEGER PRIMARY KEY,
+          usuario_id INTEGER NOT NULL REFERENCES usuarios(id),
+          descricao TEXT NOT NULL CHECK (length(trim(descricao)) > 0),
+          tipo TEXT NOT NULL CHECK (tipo IN ('receita', 'despesa')),
+          valor_em_centavos INTEGER NOT NULL CHECK (
+            typeof(valor_em_centavos) = 'integer' AND
+            valor_em_centavos BETWEEN 0 AND 9007199254740991
+          ),
+          data TEXT NOT NULL CHECK (
+            length(data) = 10 AND data GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'
+            AND date(data, '+0 days') IS NOT NULL AND date(data, '+0 days') = data
+          )
+        );
+        CREATE INDEX movimentacoes_usuario_data ON movimentacoes(usuario_id, data);
+        INSERT INTO migrations (versao) VALUES (1);
+      `);
+      db.exec("COMMIT");
+    } catch (erro) {
+      db.exec("ROLLBACK");
+      throw erro;
+    }
+  }
+
+  if (db.prepare("SELECT versao FROM migrations WHERE versao = 2").get()) return;
   db.exec("BEGIN");
   try {
     db.exec(`
-      CREATE TABLE usuarios (
+      CREATE TABLE metas (
         id INTEGER PRIMARY KEY,
-        nome TEXT NOT NULL CHECK (length(trim(nome)) > 0),
-        email TEXT NOT NULL COLLATE NOCASE UNIQUE CHECK (length(trim(email)) > 0),
-        senha_hash TEXT NOT NULL CHECK (length(senha_hash) > 0)
-      );
-      CREATE TABLE movimentacoes (
-        id INTEGER PRIMARY KEY,
-        usuario_id INTEGER NOT NULL REFERENCES usuarios(id),
-        descricao TEXT NOT NULL CHECK (length(trim(descricao)) > 0),
-        tipo TEXT NOT NULL CHECK (tipo IN ('receita', 'despesa')),
-        valor_em_centavos INTEGER NOT NULL CHECK (
-          typeof(valor_em_centavos) = 'integer' AND
-          valor_em_centavos BETWEEN 0 AND 9007199254740991
-        ),
-        data TEXT NOT NULL CHECK (
-          length(data) = 10 AND data GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'
-          AND date(data, '+0 days') IS NOT NULL AND date(data, '+0 days') = data
+        nome TEXT NOT NULL UNIQUE CHECK (length(trim(nome)) > 0),
+        valor_alvo_em_centavos INTEGER NOT NULL CHECK (
+          typeof(valor_alvo_em_centavos) = 'integer' AND
+          valor_alvo_em_centavos BETWEEN 1 AND 9007199254740991
         )
       );
-      CREATE INDEX movimentacoes_usuario_data ON movimentacoes(usuario_id, data);
-      INSERT INTO migrations (versao) VALUES (1);
+      INSERT INTO migrations (versao) VALUES (2);
     `);
     db.exec("COMMIT");
   } catch (erro) {

@@ -17,7 +17,7 @@ const dadosValidos = {
 
 function prepararApp() {
   const criarUsuario = vi.fn<CriarUsuario>();
-  const app = createApp(criarUsuario);
+  const app = createApp({ criarUsuario });
 
   return { app, criarUsuario };
 }

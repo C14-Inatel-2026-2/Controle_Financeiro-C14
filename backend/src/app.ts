@@ -1,13 +1,24 @@
 import express from "express";
 import { router } from "./routes/index.js";
+import { createGoalRouter } from "./routes/goalRoutes.js";
+import type { GoalCatalog } from "./features/goals/domain/goal-repository.js";
 import { createUserRouter } from "./routes/userRoutes.js";
 import type { CriarUsuario } from "./controllers/createUserController.js";
 
-export function createApp(criarUsuario?: CriarUsuario) {
+interface AppDependencies {
+  goalCatalog?: GoalCatalog;
+  criarUsuario?: CriarUsuario;
+}
+
+export function createApp({ goalCatalog, criarUsuario }: AppDependencies = {}) {
   const app = express();
 
   app.use(express.json());
   app.use(router);
+
+  if (goalCatalog) {
+    app.use("/goals", createGoalRouter(goalCatalog));
+  }
 
   if (criarUsuario) {
     app.use("/users", createUserRouter(criarUsuario));

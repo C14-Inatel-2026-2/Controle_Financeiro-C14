@@ -118,3 +118,9 @@ Guias dos jobs do backend:
 - [Testes unitários](docs/jenkins/unitarios.md)
 - [Testes de integração e cobertura](docs/jenkins/backend-integracao-cobertura.md)
 - [Deploy local](docs/ci-cd/deploy.md)
+
+## US05 — Metas financeiras
+
+Esta contribuição entrega somente o backend de cadastro e consulta de metas com
+SQLite e validação. A interface será integrada pelo Donnato; progresso dinâmico
+ainda não está implementado. Consulte o [contrato da API e os testes da US05](docs/us05-metas-financeiras.md).
