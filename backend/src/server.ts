@@ -1,9 +1,8 @@
-import { createApp } from "./app.js";
+import { createAppComBanco } from "./appComBanco.js";
 import { abrirBanco } from "./database/conexao.js";
-import { createSqliteGoalRepository } from "./features/goals/infrastructure/sqlite-goal-repository.js";
 
 const db = abrirBanco(process.env.DATABASE_PATH);
-const app = createApp({ goalCatalog: createSqliteGoalRepository(db) });
+const app = createAppComBanco(db);
 
 const PORT = 3000;
 
