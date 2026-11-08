@@ -6,6 +6,7 @@ import { Home } from "./pages/Home";
 import { Dashboard } from "./pages/Dashboard";
 import { Categorias } from "./pages/Categorias";
 import type { Tela } from "./navegacao";
+import { ImportarFatura } from "./pages/ImportarFatura";
 
 // Navegação simples: uma memória guarda qual tela está visível. Quando as
 // telas crescerem, ou quando cada uma precisar de endereço próprio, vale
@@ -14,6 +15,8 @@ export default function App() {
   const [tela, setTela] = useState<Tela>("inicial");
 
   switch (tela) {
+    case "importacao":
+      return <ImportarFatura aoVoltar={() => setTela("home")} />;
     case "login":
       return (
         <Login

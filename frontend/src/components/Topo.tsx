@@ -8,6 +8,7 @@ type Props = {
 };
 
 const MENU: { tela: Tela; rotulo: string }[] = [
+  { tela: "importacao", rotulo: "Importar fatura" },
   { tela: "home", rotulo: "Início" },
   { tela: "dashboard", rotulo: "Dashboard" },
   { tela: "categorias", rotulo: "Categorias" },

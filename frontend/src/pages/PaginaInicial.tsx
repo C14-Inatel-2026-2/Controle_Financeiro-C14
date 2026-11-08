@@ -155,7 +155,7 @@ export function PaginaInicial({ aoCriarConta, aoEntrar }: Props) {
             <div>
               <div className="pi-recurso-titulo">Importar fatura</div>
               <div className="pi-recurso-texto">
-                Envie o PDF ou CSV do banco e lance tudo de uma vez.
+                Confira os lançamentos de um PDF Itaú ou CSV padronizado.
               </div>
             </div>
           </div>

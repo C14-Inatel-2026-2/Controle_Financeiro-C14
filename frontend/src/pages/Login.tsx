@@ -1,7 +1,7 @@
 import { useState } from "react";
 
-// O login valida menos que o cadastro de propósito: aqui a senha é
-// conferida pelo servidor, não pelo formato.
+// Esta tela valida somente o preenchimento e navega para a área interna.
+// A verificação da senha no servidor depende da integração com a autenticação.
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 type Props = {
