@@ -4,15 +4,24 @@ import { createGoalRouter } from "./routes/goalRoutes.js";
 import type { GoalCatalog } from "./features/goals/domain/goal-repository.js";
 import { createUserRouter } from "./routes/userRoutes.js";
 import type { CriarUsuario } from "./controllers/createUserController.js";
+import { createInvoiceRouter } from "./routes/invoiceRoutes.js";
+import { InvoiceImportWorkflow } from "./features/invoice-import/application/invoice-import-workflow.js";
+import { createDefaultInvoiceImportService } from "./features/invoice-import/index.js";
+import type { InvoiceIdentity } from "./controllers/createInvoiceController.js";
 
 interface AppDependencies {
   goalCatalog?: GoalCatalog;
   criarUsuario?: CriarUsuario;
+  invoiceWorkflow?: InvoiceImportWorkflow;
+  invoiceIdentity?: InvoiceIdentity;
 }
 
-export function createApp({ goalCatalog, criarUsuario }: AppDependencies = {}) {
+export function createApp({ goalCatalog, criarUsuario, invoiceWorkflow, invoiceIdentity }: AppDependencies = {}) {
   const app = express();
 
+  app.use("/invoice-imports", createInvoiceRouter(
+    invoiceWorkflow ?? new InvoiceImportWorkflow(createDefaultInvoiceImportService()), invoiceIdentity,
+  ));
   app.use(express.json());
   app.use(router);
 
