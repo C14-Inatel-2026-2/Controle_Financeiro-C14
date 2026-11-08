@@ -1,0 +1,2 @@
+# Preserva os bytes dos PDFs, evitando conversao de quebras de linha no checkout.
+*.pdf binary

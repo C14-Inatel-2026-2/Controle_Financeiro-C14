@@ -24,7 +24,7 @@ A pasta `ui/` contém telas demonstrativas (protótipos visuais). Elas represent
 
 ## Requisitos funcionais
 
-Classificação adotada, com base no código presente na `main`:
+Classificação histórica da documentação da `main`; a situação atual da importação nesta contribuição está na seção acima. As demais linhas não foram reavaliadas nesta entrega:
 
 - **Implementado**: funciona de ponta a ponta para o usuário (interface, API e persistência, quando aplicáveis) e é coberto por testes.
 - **Parcialmente implementado**: existem regras de negócio, persistência ou telas, mas o fluxo completo ainda não está disponível ao usuário.
@@ -49,7 +49,7 @@ Cada requisito separa três situações:
 
 - **Pretendido**: a condição que o sistema deve atender.
 - **Evidência por inspeção**: o que o código e os testes existentes na `main` implementam, conforme leitura dos arquivos. Esta atualização da documentação não executou os testes.
-- **Comprovado por execução**: resultado registrado de uma execução real. Hoje o único registro é a [execução da pipeline completa na `main` em 17/10/2026](docs/jenkins/evidencias/pipeline-completa-main-2026-10-17.txt), sobre o commit `dbcc705`, em que os cinco jobs terminaram com `SUCCESS`. O código de `backend/` e `frontend/` não mudou desde esse commit; as alterações posteriores são apenas de documentação.
+- **Comprovado por execução**: o registro histórico da [pipeline completa na `main` em 17/10/2026](docs/jenkins/evidencias/pipeline-completa-main-2026-10-17.txt) corresponde ao commit `dbcc705`, com cinco jobs em `SUCCESS`. Esse resultado não comprova versões posteriores. Na verificação local da importação em 08/11/2026 passaram 119 testes unitários do backend, 23 do frontend e os 33 testes de integração existentes, além dos builds e do lint. A confirmação com autenticação real e uma nova execução do Jenkins permanecem pendentes.
 
 Não há metas de desempenho, de cobertura mínima ou de disponibilidade definidas no projeto.
 
