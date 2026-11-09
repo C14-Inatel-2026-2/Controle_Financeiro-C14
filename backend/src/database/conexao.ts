@@ -1,6 +1,7 @@
 import { DatabaseSync } from "node:sqlite";
 import { mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
+import { migrarImportacoes } from "./migrarImportacoes.js";
 
 export function abrirBanco(caminho = "data/financeiro.sqlite"): DatabaseSync {
   if (caminho !== ":memory:") mkdirSync(dirname(resolve(caminho)), { recursive: true });
@@ -51,10 +52,10 @@ export function migrarBanco(db: DatabaseSync): void {
     }
   }
 
-  if (db.prepare("SELECT versao FROM migrations WHERE versao = 2").get()) return;
-  db.exec("BEGIN");
-  try {
-    db.exec(`
+  if (!db.prepare("SELECT versao FROM migrations WHERE versao = 2").get()) {
+    db.exec("BEGIN");
+    try {
+      db.exec(`
       CREATE TABLE metas (
         id INTEGER PRIMARY KEY,
         nome TEXT NOT NULL UNIQUE CHECK (length(trim(nome)) > 0),
@@ -64,10 +65,12 @@ export function migrarBanco(db: DatabaseSync): void {
         )
       );
       INSERT INTO migrations (versao) VALUES (2);
-    `);
-    db.exec("COMMIT");
-  } catch (erro) {
-    db.exec("ROLLBACK");
-    throw erro;
+      `);
+      db.exec("COMMIT");
+    } catch (erro) {
+      db.exec("ROLLBACK");
+      throw erro;
+    }
   }
+  migrarImportacoes(db);
 }

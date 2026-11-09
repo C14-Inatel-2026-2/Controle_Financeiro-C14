@@ -6,3 +6,8 @@ docs/uml/controle-financeiro-casos-de-uso.mdj
 docs/uml/README.md
 reports/
 /.secrets/
+
+# Guias locais de estudo e verificação da importação de faturas.
+/docs/importacao-faturas/README.md
+/docs/importacao-faturas/estudo.md
+/docs/importacao-faturas/verificacao.md

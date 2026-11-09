@@ -82,7 +82,8 @@ describe("API e SQLite de metas", () => {
     expect(db.prepare("SELECT * FROM usuarios").all()).toHaveLength(1);
     expect(db.prepare("SELECT * FROM movimentacoes").all()).toHaveLength(1);
     expect(db.prepare("SELECT * FROM metas").all()).toEqual([]);
-    expect(db.prepare("SELECT versao FROM migrations ORDER BY versao").all()).toEqual([{ versao: 1 }, { versao: 2 }]);
+    // Este cenário verifica a evolução das metas; migrations posteriores pertencem a outros módulos.
+    expect(db.prepare("SELECT versao FROM migrations WHERE versao <= 2 ORDER BY versao").all()).toEqual([{ versao: 1 }, { versao: 2 }]);
   });
 
   it("o SQLite rejeita alvos inválidos e nomes vazios mesmo sem passar pelo serviço", () => {

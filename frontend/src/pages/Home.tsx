@@ -53,8 +53,8 @@ const ATALHOS: {
   },
   {
     titulo: "Importar fatura",
-    descricao: "Envie o PDF ou CSV do banco",
-    destino: null,
+    descricao: "Envie o PDF Itaú ou cole o CSV padronizado",
+    destino: "importacao",
     icone: (
       <path d="M12 16V4m0 0L8 8m4-4l4 4M5 17v2a1 1 0 001 1h12a1 1 0 001-1v-2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     ),
