@@ -8,6 +8,7 @@ import { InvoiceImportWorkflow } from "./features/invoice-import/application/inv
 import { createDefaultInvoiceImportService } from "./features/invoice-import/index.js";
 import { criarRepositorioCredenciais } from "./repositories/credenciais.js";
 import { criarRepositorioSessoes } from "./repositories/sessoes.js";
+import { createSqliteCategoryRepository } from "./features/categories/infrastructure/sqlite-category-repository.js";
 
 export function createAppComBanco(db: DatabaseSync) {
   const usuarios = createSqliteUserRepository(db);
@@ -22,5 +23,6 @@ export function createAppComBanco(db: DatabaseSync) {
       // Em produção a API deve estar atrás de HTTPS. O deploy local usa HTTP sem NODE_ENV.
       cookieSeguro: process.env.NODE_ENV === "production",
     },
+    categoriasDoUsuario: (usuarioId) => createSqliteCategoryRepository(db, usuarioId),
   });
 }
