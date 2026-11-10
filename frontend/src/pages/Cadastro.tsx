@@ -3,24 +3,41 @@ import {
   ValidadorDeCadastro,
   type ErrosCadastro,
 } from "../utils/ValidadorDeCadastro";
+import { ServicoDeCadastro } from "../services/ServicoDeCadastro";
 
 const validador = new ValidadorDeCadastro();
 
 type Props = {
   aoEntrar: () => void;
+  servico?: Pick<ServicoDeCadastro, "cadastrar">;
 };
 
-export function Cadastro({ aoEntrar }: Props) {
+export function Cadastro({ aoEntrar, servico = new ServicoDeCadastro() }: Props) {
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [erros, setErros] = useState<ErrosCadastro>({});
   const [sucesso, setSucesso] = useState(false);
+  const [erroApi, setErroApi] = useState("");
+  const [enviando, setEnviando] = useState(false);
 
-  function cadastrar() {
+  async function cadastrar() {
+    if (enviando) return;
     const novosErros = validador.validar({ nome, email, senha });
     setErros(novosErros);
-    setSucesso(Object.keys(novosErros).length === 0);
+    setSucesso(false);
+    setErroApi("");
+    if (Object.keys(novosErros).length > 0) return;
+
+    setEnviando(true);
+    try {
+      await servico.cadastrar({ nome, email, senha });
+      setSucesso(true);
+    } catch (erro) {
+      setErroApi(erro instanceof Error ? erro.message : "Não foi possível cadastrar. Tente novamente.");
+    } finally {
+      setEnviando(false);
+    }
   }
 
   return (
@@ -96,9 +113,12 @@ export function Cadastro({ aoEntrar }: Props) {
             {erros.senha && <span className="erro">{erros.senha}</span>}
           </label>
 
-          <button type="submit">Cadastrar</button>
+          <button type="submit" disabled={enviando}>
+            {enviando ? "Cadastrando..." : "Cadastrar"}
+          </button>
 
-          {sucesso && <p className="sucesso">Cadastro válido!</p>}
+          {sucesso && <p className="sucesso">Conta criada! Agora é só entrar.</p>}
+          {erroApi && <p className="erro" role="alert">{erroApi}</p>}
 
           <p className="rodape-form">
             Já tem conta?{" "}

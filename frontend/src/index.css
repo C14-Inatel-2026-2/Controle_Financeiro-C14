@@ -160,6 +160,11 @@ button:hover {
   background: #6fdcb4;
 }
 
+button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
 .sucesso {
   color: #45c79a;
 }
