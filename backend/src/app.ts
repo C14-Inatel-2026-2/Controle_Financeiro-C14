@@ -8,22 +8,34 @@ import { createInvoiceRouter } from "./routes/invoiceRoutes.js";
 import { InvoiceImportWorkflow } from "./features/invoice-import/application/invoice-import-workflow.js";
 import { createDefaultInvoiceImportService } from "./features/invoice-import/index.js";
 import type { InvoiceIdentity } from "./controllers/createInvoiceController.js";
+import { createAuthRouter, type Autenticacao } from "./routes/authRoutes.js";
+import { carregarSessao } from "./middlewares/sessao.js";
 
 interface AppDependencies {
   goalCatalog?: GoalCatalog;
   criarUsuario?: CriarUsuario;
   invoiceWorkflow?: InvoiceImportWorkflow;
   invoiceIdentity?: InvoiceIdentity;
+  autenticacao?: Autenticacao;
 }
 
-export function createApp({ goalCatalog, criarUsuario, invoiceWorkflow, invoiceIdentity }: AppDependencies = {}) {
+export function createApp({ goalCatalog, criarUsuario, invoiceWorkflow, invoiceIdentity, autenticacao }: AppDependencies = {}) {
   const app = express();
+
+  // Antes das rotas: qualquer rota abaixo pode ler req.usuario.
+  if (autenticacao) {
+    app.use(carregarSessao(autenticacao.sessoes));
+  }
 
   app.use("/invoice-imports", createInvoiceRouter(
     invoiceWorkflow ?? new InvoiceImportWorkflow(createDefaultInvoiceImportService()), invoiceIdentity,
   ));
   app.use(express.json());
   app.use(router);
+
+  if (autenticacao) {
+    app.use("/auth", createAuthRouter(autenticacao));
+  }
 
   if (goalCatalog) {
     app.use("/goals", createGoalRouter(goalCatalog));
