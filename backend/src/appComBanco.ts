@@ -9,9 +9,12 @@ import { createDefaultInvoiceImportService } from "./features/invoice-import/ind
 import { criarRepositorioCredenciais } from "./repositories/credenciais.js";
 import { criarRepositorioSessoes } from "./repositories/sessoes.js";
 
+import { criarRepositorioMovimentacoes } from "./repositories/movimentacoes.js";
+
 export function createAppComBanco(db: DatabaseSync) {
   const usuarios = createSqliteUserRepository(db);
   return createApp({
+    movimentacoes: criarRepositorioMovimentacoes(db),
     goalCatalog: createSqliteGoalRepository(db),
     criarUsuario: (dados) => createUserService(dados, usuarios),
     invoiceWorkflow: new InvoiceImportWorkflow(createDefaultInvoiceImportService(), createSqliteInvoiceImportRepository(db)),

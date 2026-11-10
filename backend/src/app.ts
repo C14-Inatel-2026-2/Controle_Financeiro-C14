@@ -11,7 +11,10 @@ import type { InvoiceIdentity } from "./controllers/createInvoiceController.js";
 import { createAuthRouter, type Autenticacao } from "./routes/authRoutes.js";
 import { carregarSessao } from "./middlewares/sessao.js";
 
+import { criarRouterMovimentacoes, type RepositorioMovimentacoes } from "./routes/movimentacoes.js";
+
 interface AppDependencies {
+  movimentacoes?: RepositorioMovimentacoes;
   goalCatalog?: GoalCatalog;
   criarUsuario?: CriarUsuario;
   invoiceWorkflow?: InvoiceImportWorkflow;
@@ -19,7 +22,7 @@ interface AppDependencies {
   autenticacao?: Autenticacao;
 }
 
-export function createApp({ goalCatalog, criarUsuario, invoiceWorkflow, invoiceIdentity, autenticacao }: AppDependencies = {}) {
+export function createApp({ goalCatalog, criarUsuario, invoiceWorkflow, invoiceIdentity, autenticacao, movimentacoes }: AppDependencies = {}) {
   const app = express();
 
   // Antes das rotas: qualquer rota abaixo pode ler req.usuario.
@@ -32,6 +35,7 @@ export function createApp({ goalCatalog, criarUsuario, invoiceWorkflow, invoiceI
   ));
   app.use(express.json());
   app.use(router);
+  if (movimentacoes) app.use("/movimentacoes", criarRouterMovimentacoes(movimentacoes));
 
   if (autenticacao) {
     app.use("/auth", createAuthRouter(autenticacao));

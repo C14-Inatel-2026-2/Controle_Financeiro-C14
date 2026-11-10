@@ -23,7 +23,7 @@ describe("Banco de movimentações", () => {
     const repo = preparar();
     const id = repo.inserir(1, movimento);
     repo.inserir(2, { ...movimento, descricao: "Aluguel" });
-    expect(repo.listar(1)).toEqual([{ id, ...movimento }]);
+    expect(repo.listar(1)).toEqual([{ id, ...movimento, categoriaId: null }]);
     expect(repo.listar(2)).toHaveLength(1);
     expect(repo.listar(99)).toEqual([]);
   });
