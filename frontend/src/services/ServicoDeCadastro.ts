@@ -16,11 +16,17 @@ export class ServicoDeCadastro {
   }
 
   async cadastrar(dados: DadosCadastro): Promise<Usuario> {
-    const resposta = await fetch(`${this.baseUrl}/users`, {
-      method: "POST", // POST = estou enviando dados
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(dados), // objeto -> texto, que é o que trafega na rede
-    });
+    let resposta: Response;
+    try {
+      resposta = await fetch(`${this.baseUrl}/users`, {
+        method: "POST", // POST = estou enviando dados
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(dados), // objeto -> texto, que é o que trafega na rede
+      });
+    } catch {
+      // Sem conexão com a API o fetch lança um erro técnico em inglês.
+      throw new Error("Não foi possível cadastrar. Tente novamente.");
+    }
 
     // 409 é o código que o backend usa para "este e-mail já existe".
     if (resposta.status === 409) {

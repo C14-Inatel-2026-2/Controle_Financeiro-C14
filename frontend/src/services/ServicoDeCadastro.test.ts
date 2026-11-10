@@ -63,4 +63,13 @@ describe("ServicoDeCadastro", () => {
       "Não foi possível cadastrar",
     );
   });
+
+  // Teste negativo: API fora do ar ou sem conexão.
+  it("avisa em português quando não consegue falar com a API", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
+
+    await expect(servico.cadastrar(dados)).rejects.toThrow(
+      "Não foi possível cadastrar. Tente novamente.",
+    );
+  });
 });

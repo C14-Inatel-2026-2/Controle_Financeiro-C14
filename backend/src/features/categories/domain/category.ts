@@ -10,7 +10,7 @@ export class InvalidCategoryNameError extends Error {
 }
 
 export function createCategory(name: string): Category {
-  const normalizedName = name.trim();
+  const normalizedName = typeof name === "string" ? name.trim() : "";
 
   if (normalizedName === "") {
     throw new InvalidCategoryNameError();

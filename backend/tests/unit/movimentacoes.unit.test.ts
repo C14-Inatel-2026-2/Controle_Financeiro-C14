@@ -28,7 +28,7 @@ describe("Repositório de movimentações — com mock", () => {
   });
 
   it("consulta pelo ID do usuário e devolve as movimentações retornadas", () => {
-    const movimentos = [{ id: 42, descricao: "Mercado", tipo: "despesa", valorEmCentavos: 3000, data: "2026-09-30" }];
+    const movimentos = [{ id: 42, descricao: "Mercado", tipo: "despesa", valorEmCentavos: 3000, data: "2026-09-30", categoriaId: null }];
     const all = vi.fn().mockReturnValue(movimentos);
     const prepare = vi.fn().mockReturnValue({ all });
     const db = { prepare } as unknown as DatabaseSync;
@@ -37,6 +37,7 @@ describe("Repositório de movimentações — com mock", () => {
     expect(repositorio.listar(7)).toEqual(movimentos);
     expect(prepare).toHaveBeenCalledTimes(1);
     const sql = prepare.mock.calls[0]![0] as string;
+    expect(sql.replace(/\s+/g, " ")).toContain("categoria_id AS categoriaId FROM movimentacoes");
     expect(sql.replace(/\s+/g, " ")).toContain("FROM movimentacoes WHERE usuario_id = ? ORDER BY data, id");
     expect(all).toHaveBeenCalledExactlyOnceWith(7);
   });

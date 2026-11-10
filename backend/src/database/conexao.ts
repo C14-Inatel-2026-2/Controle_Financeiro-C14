@@ -2,6 +2,8 @@ import { DatabaseSync } from "node:sqlite";
 import { mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { migrarImportacoes } from "./migrarImportacoes.js";
+import { migrarSessoes } from "./migrarSessoes.js";
+import { migrarCategorias } from "./migrarCategorias.js";
 
 export function abrirBanco(caminho = "data/financeiro.sqlite"): DatabaseSync {
   if (caminho !== ":memory:") mkdirSync(dirname(resolve(caminho)), { recursive: true });
@@ -73,4 +75,6 @@ export function migrarBanco(db: DatabaseSync): void {
     }
   }
   migrarImportacoes(db);
+  migrarSessoes(db);
+  migrarCategorias(db);
 }

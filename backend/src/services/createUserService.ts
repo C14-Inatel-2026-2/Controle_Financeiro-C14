@@ -6,6 +6,7 @@ import {
   ValidationError,
   EmailAlreadyExistsError,
 } from "../errors/userErrors.js";
+import { normalizarEmail } from "./normalizarEmail.js";
 
 const derivarChave = promisify(scrypt);
 
@@ -18,8 +19,7 @@ export async function createUserService(
   throw new ValidationError("Informe seu nome.", "nome");
 }
 
-  // SQLite NOCASE compara letras ASCII sem diferenciar maiúsculas/minúsculas.
-  const email = dados.email.trim().replace(/[A-Z]/g, (letra) => letra.toLowerCase());
+  const email = normalizarEmail(dados.email);
   
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     throw new ValidationError("Informe um e-mail válido.", "email");

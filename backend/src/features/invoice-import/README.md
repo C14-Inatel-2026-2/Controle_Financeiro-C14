@@ -9,7 +9,7 @@ somente duas entradas:
 2. texto CSV manual no template `data;descricao;valor` para "Outro banco".
 
 OFX e OCR não fazem parte da implementação. A API, a tela e a persistência
-foram conectadas ao núcleo; a confirmação aguarda identidade autenticada.
+foram conectadas ao núcleo; a confirmação usa o usuário da sessão (`req.usuario.id`).
 O Router expõe `GET /invoice-imports/options`, `POST /invoice-imports/preview`
 e `POST /invoice-imports/confirm`. CSV é enviado como JSON com `content`;
 PDF usa `mode: "known-bank"`, `bankId: "itau"` e `file` com `fileName`,
@@ -17,10 +17,9 @@ PDF usa `mode: "known-bank"`, `bankId: "itau"` e `file` com `fileName`,
 da prévia; o usuário deve vir da autenticação no servidor.
 
 A página inicial não oferece um atalho de importação. O acesso pela interface
-fica no menu interno, mas o login atual apenas navega entre telas: ainda não
-autentica o usuário. A API de prévia continua pública para testes; retirar o
-atalho não protege a rota. A confirmação continua indisponível sem identidade
-autenticada fornecida pelo servidor.
+fica no menu interno. A API de prévia continua pública para testes; retirar o
+atalho não protege a rota. A confirmação exige uma sessão criada por
+`POST /auth/login` e responde 401 sem ela (veja `docs/autenticacao.md`).
 
 ## O que significa cada tipo de arquivo
 

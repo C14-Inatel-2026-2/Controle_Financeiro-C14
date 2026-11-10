@@ -15,3 +15,10 @@ export class EmailAlreadyExistsError extends Error {
     this.name = "EmailAlreadyExistsError";
   }
 }
+
+export class CredenciaisInvalidasError extends Error {
+  constructor() {
+    super("E-mail ou senha incorretos.");
+    this.name = "CredenciaisInvalidasError";
+  }
+}

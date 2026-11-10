@@ -14,8 +14,8 @@ const repositorio = criarRepositorioMovimentacoes(db);
 const movimentos = repositorio.listar(usuarioAutenticado.id);
 ```
 
-A tabela usuarios guarda somente senha_hash. O módulo de autenticação deve gerar
-um hash apropriado antes de cadastrar o usuário. Esta entrega não implementa login.
+A tabela usuarios guarda somente senha_hash. A tabela sessoes (migration 4) guarda
+o hash do token de cada login. Veja `docs/autenticacao.md`.
 O repositório recebe o ID da sessão autenticada: não aceite usuarioId vindo do cliente.
 Consultas SQL usam parâmetros. As movimentações retornadas usam valorEmCentavos,
 compatível com calcularSaldo. A importação de faturas ainda não está conectada ao banco.
