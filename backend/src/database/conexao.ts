@@ -3,6 +3,7 @@ import { mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { migrarImportacoes } from "./migrarImportacoes.js";
 import { migrarSessoes } from "./migrarSessoes.js";
+import { migrarCategorias } from "./migrarCategorias.js";
 
 export function abrirBanco(caminho = "data/financeiro.sqlite"): DatabaseSync {
   if (caminho !== ":memory:") mkdirSync(dirname(resolve(caminho)), { recursive: true });
@@ -75,22 +76,5 @@ export function migrarBanco(db: DatabaseSync): void {
   }
   migrarImportacoes(db);
   migrarSessoes(db);
-  if (!db.prepare("SELECT versao FROM migrations WHERE versao = 5").get()) {
-    db.exec("BEGIN");
-    try {
-      db.exec(`
-        CREATE TABLE categorias (
-          id INTEGER PRIMARY KEY,
-          usuario_id INTEGER NOT NULL REFERENCES usuarios(id),
-          nome TEXT NOT NULL CHECK (length(trim(nome)) > 0)
-        );
-        ALTER TABLE movimentacoes ADD COLUMN categoria_id INTEGER REFERENCES categorias(id);
-        INSERT INTO migrations (versao) VALUES (5);
-      `);
-      db.exec("COMMIT");
-    } catch (erro) {
-      db.exec("ROLLBACK");
-      throw erro;
-    }
-  }
+  migrarCategorias(db);
 }

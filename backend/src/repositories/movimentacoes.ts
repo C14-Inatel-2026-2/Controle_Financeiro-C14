@@ -1,28 +1,28 @@
 import type { DatabaseSync } from "node:sqlite";
 import { validarValorEmCentavos } from "./validarValorEmCentavos";
+import { validarCategoriaDoUsuario } from "./validarCategoriaDoUsuario.js";
 
 export interface NovaMovimentacao {
   descricao: string;
   tipo: "receita" | "despesa";
   valorEmCentavos: number;
   data: string;
+  // Opcional: sem categoria o lançamento é gravado com categoria_id NULL.
   categoriaId?: number | null;
 }
-
-export class CategoriaIndisponivel extends Error {}
 
 // usuarioId deve vir da autenticação, nunca do corpo da requisição.
 export function criarRepositorioMovimentacoes(db: DatabaseSync) {
   return {
     inserir(usuarioId: number, movimento: NovaMovimentacao): number {
       validarValorEmCentavos(movimento.valorEmCentavos);
-      if (movimento.categoriaId != null) {
-        const resultado = db.prepare(`
+      if (movimento.categoriaId !== undefined && movimento.categoriaId !== null) {
+        validarCategoriaDoUsuario(db, usuarioId, movimento.categoriaId);
+        const comCategoria = db.prepare(`
           INSERT INTO movimentacoes (usuario_id, descricao, tipo, valor_em_centavos, data, categoria_id)
-          SELECT usuario_id, ?, ?, ?, ?, id FROM categorias WHERE id = ? AND usuario_id = ?
-        `).run(movimento.descricao, movimento.tipo, movimento.valorEmCentavos, movimento.data, movimento.categoriaId, usuarioId);
-        if (!resultado.changes) throw new CategoriaIndisponivel("Categoria indisponível.");
-        return Number(resultado.lastInsertRowid);
+          VALUES (?, ?, ?, ?, ?, ?)
+        `).run(usuarioId, movimento.descricao, movimento.tipo, movimento.valorEmCentavos, movimento.data, movimento.categoriaId);
+        return Number(comCategoria.lastInsertRowid);
       }
       const resultado = db.prepare(`
         INSERT INTO movimentacoes (usuario_id, descricao, tipo, valor_em_centavos, data)

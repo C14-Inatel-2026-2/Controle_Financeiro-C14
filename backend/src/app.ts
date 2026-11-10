@@ -10,6 +10,7 @@ import { createDefaultInvoiceImportService } from "./features/invoice-import/ind
 import type { InvoiceIdentity } from "./controllers/createInvoiceController.js";
 import { createAuthRouter, type Autenticacao } from "./routes/authRoutes.js";
 import { carregarSessao } from "./middlewares/sessao.js";
+import { createCategoryRouter, type CategoriasDoUsuario } from "./routes/categoryRoutes.js";
 
 import { criarRouterMovimentacoes, type RepositorioMovimentacoes } from "./routes/movimentacoes.js";
 
@@ -20,9 +21,12 @@ interface AppDependencies {
   invoiceWorkflow?: InvoiceImportWorkflow;
   invoiceIdentity?: InvoiceIdentity;
   autenticacao?: Autenticacao;
+  categoriasDoUsuario?: CategoriasDoUsuario;
 }
 
-export function createApp({ goalCatalog, criarUsuario, invoiceWorkflow, invoiceIdentity, autenticacao, movimentacoes }: AppDependencies = {}) {
+export function createApp({
+  goalCatalog, criarUsuario, invoiceWorkflow, invoiceIdentity, autenticacao, categoriasDoUsuario, movimentacoes,
+}: AppDependencies = {}) {
   const app = express();
 
   // Antes das rotas: qualquer rota abaixo pode ler req.usuario.
@@ -39,6 +43,10 @@ export function createApp({ goalCatalog, criarUsuario, invoiceWorkflow, invoiceI
 
   if (autenticacao) {
     app.use("/auth", createAuthRouter(autenticacao));
+  }
+
+  if (categoriasDoUsuario) {
+    app.use("/categories", createCategoryRouter(categoriasDoUsuario));
   }
 
   if (goalCatalog) {

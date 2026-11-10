@@ -171,7 +171,7 @@ describe("Confirmação de fatura autenticada com SQLite", () => {
 
 describe("Migration 4 (sessões)", () => {
   it("adiciona a tabela a um banco na versão 3 e preserva os registros", () => {
-    db.exec(`ALTER TABLE movimentacoes DROP COLUMN categoria_id; DROP TABLE categorias;
+    db.exec(`DROP INDEX movimentacoes_categoria; ALTER TABLE movimentacoes DROP COLUMN categoria_id; DROP TABLE categorias;
       DROP TABLE sessoes; DELETE FROM migrations WHERE versao >= 4;
       INSERT INTO usuarios (id, nome, email, senha_hash) VALUES (1, 'Ana', 'ana@example.test', 'hash-teste');
       INSERT INTO movimentacoes (usuario_id, descricao, tipo, valor_em_centavos, data)

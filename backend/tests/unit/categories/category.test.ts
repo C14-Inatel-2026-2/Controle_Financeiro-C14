@@ -15,4 +15,10 @@ describe("createCategory", () => {
   it("deve rejeitar categoria com nome vazio", () => {
     expect(() => createCategory("   ")).toThrow(InvalidCategoryNameError);
   });
+
+  it("deve rejeitar nome que nao seja texto", () => {
+    for (const name of [123, null, undefined, ["Lazer"]]) {
+      expect(() => createCategory(name as unknown as string)).toThrow(InvalidCategoryNameError);
+    }
+  });
 });

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { exigirSessao } from "../middlewares/sessao.js";
-import { CategoriaIndisponivel, type criarRepositorioMovimentacoes, type NovaMovimentacao } from "../repositories/movimentacoes.js";
+import { ValidationError } from "../errors/userErrors.js";
+import type { criarRepositorioMovimentacoes, NovaMovimentacao } from "../repositories/movimentacoes.js";
 
 export type RepositorioMovimentacoes = ReturnType<typeof criarRepositorioMovimentacoes>;
 
@@ -29,7 +30,7 @@ export function criarRouterMovimentacoes(repo: RepositorioMovimentacoes) {
       const id = repo.inserir(req.usuario!.id, req.body);
       res.status(201).json({ id });
     } catch (erro) {
-      if (!(erro instanceof CategoriaIndisponivel)) throw erro;
+      if (!(erro instanceof ValidationError) || erro.campo !== "categoriaId") throw erro;
       res.status(404).json({ erro: { codigo: "CATEGORY_NOT_FOUND", mensagem: erro.message } });
     }
   });
