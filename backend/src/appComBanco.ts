@@ -10,7 +10,12 @@ import { criarRepositorioCredenciais } from "./repositories/credenciais.js";
 import { criarRepositorioSessoes } from "./repositories/sessoes.js";
 import { createSqliteCategoryRepository } from "./features/categories/infrastructure/sqlite-category-repository.js";
 
-export function createAppComBanco(db: DatabaseSync) {
+interface OpcoesApp {
+  cookieSeguro?: boolean;
+  pastaFrontend?: string;
+}
+
+export function createAppComBanco(db: DatabaseSync, { cookieSeguro = false, pastaFrontend }: OpcoesApp = {}) {
   const usuarios = createSqliteUserRepository(db);
   return createApp({
     goalCatalog: createSqliteGoalRepository(db),
@@ -20,9 +25,9 @@ export function createAppComBanco(db: DatabaseSync) {
     autenticacao: {
       credenciais: criarRepositorioCredenciais(db),
       sessoes: criarRepositorioSessoes(db),
-      // Em produção a API deve estar atrás de HTTPS. O deploy local usa HTTP sem NODE_ENV.
-      cookieSeguro: process.env.NODE_ENV === "production",
+      cookieSeguro,
     },
     categoriasDoUsuario: (usuarioId) => createSqliteCategoryRepository(db, usuarioId),
+    pastaFrontend,
   });
 }

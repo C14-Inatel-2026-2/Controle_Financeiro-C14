@@ -41,6 +41,15 @@ pipeline {
             }
         }
 
+        stage('Testes do frontend') {
+            steps {
+                dir('frontend') {
+                    // Uma falha aqui interrompe o job e, na pipeline completa, bloqueia a publicação.
+                    sh 'npm test'
+                }
+            }
+        }
+
         stage('Build do frontend') {
             steps {
                 dir('frontend') {

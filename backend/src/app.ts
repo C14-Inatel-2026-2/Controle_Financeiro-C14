@@ -19,41 +19,42 @@ interface AppDependencies {
   invoiceIdentity?: InvoiceIdentity;
   autenticacao?: Autenticacao;
   categoriasDoUsuario?: CategoriasDoUsuario;
+  pastaFrontend?: string;
 }
 
 export function createApp({
-  goalCatalog, criarUsuario, invoiceWorkflow, invoiceIdentity, autenticacao, categoriasDoUsuario,
+  goalCatalog, criarUsuario, invoiceWorkflow, invoiceIdentity, autenticacao, categoriasDoUsuario, pastaFrontend,
 }: AppDependencies = {}) {
-  const app = express();
+  const api = express.Router();
 
   // Antes das rotas: qualquer rota abaixo pode ler req.usuario.
   if (autenticacao) {
-    app.use(carregarSessao(autenticacao.sessoes));
+    api.use(carregarSessao(autenticacao.sessoes));
   }
 
-  app.use("/invoice-imports", createInvoiceRouter(
+  api.use("/invoice-imports", createInvoiceRouter(
     invoiceWorkflow ?? new InvoiceImportWorkflow(createDefaultInvoiceImportService()), invoiceIdentity,
   ));
-  app.use(express.json());
-  app.use(router);
+  api.use(express.json());
+  api.use(router);
 
   if (autenticacao) {
-    app.use("/auth", createAuthRouter(autenticacao));
+    api.use("/auth", createAuthRouter(autenticacao));
   }
 
   if (categoriasDoUsuario) {
-    app.use("/categories", createCategoryRouter(categoriasDoUsuario));
+    api.use("/categories", createCategoryRouter(categoriasDoUsuario));
   }
 
   if (goalCatalog) {
-    app.use("/goals", createGoalRouter(goalCatalog));
+    api.use("/goals", createGoalRouter(goalCatalog));
   }
 
   if (criarUsuario) {
-    app.use("/users", createUserRouter(criarUsuario));
+    api.use("/users", createUserRouter(criarUsuario));
   } else {
     // Sem um serviço de cadastro configurado, a API informa indisponibilidade.
-    app.post("/users", (_req, res) => {
+    api.post("/users", (_req, res) => {
       res.status(503).json({
         erro: {
           codigo: "USER_REGISTRATION_UNAVAILABLE",
@@ -62,6 +63,20 @@ export function createApp({
       });
     });
   }
+
+  const app = express();
+
+  // O frontend chama /api, como no proxy do Vite. As rotas sem o prefixo continuam valendo.
+  app.use("/api", api);
+  app.use("/api", (_req, res) => {
+    res.status(404).json({ erro: { codigo: "NOT_FOUND", mensagem: "Rota da API não encontrada." } });
+  });
+
+  if (pastaFrontend) {
+    app.use(express.static(pastaFrontend));
+  }
+
+  app.use(api);
 
   return app;
 }

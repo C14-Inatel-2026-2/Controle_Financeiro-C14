@@ -161,14 +161,15 @@ O pipeline executa as seguintes etapas:
 | --- | --- |
 | Obter código | Limpa o workspace do job e obtém o código da branch informada. Não apaga a pasta em que o desenvolvedor trabalha. |
 | Instalar dependências | Executa `npm ci` em `frontend`, usando o lockfile versionado. |
+| Testes do frontend | Executa `npm test`. Uma falha encerra o job e, na pipeline completa, bloqueia a publicação da imagem. |
 | Build do frontend | Executa `npm run build`, que faz a compilação TypeScript e o build com Vite. |
 | Guardar arquivos gerados | Arquiva o conteúdo de `frontend/dist` para consulta e download no Jenkins. |
 
-O resultado esperado é `Finished: SUCCESS`, com os arquivos disponíveis na seção de artefatos da execução. Esse job não executa os testes nem publica a aplicação; essas atividades são feitas por jobs próprios, que podem ser executados individualmente ou em sequência pela [pipeline completa](#5-executar-a-pipeline-completa). Consulte os guias específicos:
+O resultado esperado é `Finished: SUCCESS`, com os arquivos disponíveis na seção de artefatos da execução. Esse job não testa o backend nem publica a aplicação; essas atividades são feitas por jobs próprios, que podem ser executados individualmente ou em sequência pela [pipeline completa](#5-executar-a-pipeline-completa). Consulte os guias específicos:
 
 - [Testes unitários do backend](unitarios.md): job `backend-unit-igor`.
 - [Integração e cobertura do backend](backend-integracao-cobertura.md): job `backend-integration-coverage`.
-- [Deploy local do backend](../ci-cd/deploy.md): job `backend-deploy`.
+- [Publicação da imagem no Docker Hub](../ci-cd/deploy.md): job `backend-deploy`.
 
 Para registrar a validação de um PR, anote o número da execução, a branch e o commit indicado no console. Um resultado anterior não valida novos commits enviados depois. O endereço `localhost` aponta para a máquina de quem o abre: ele não permite que um colega veja seu histórico. Compartilhe evidências sem credenciais ou peça que o colega reproduza a execução.
 
@@ -179,9 +180,9 @@ O job `pipeline-completa`, definido pelo [Jenkinsfile](../../Jenkinsfile) da rai
 | Estágio | Jobs | O que acontece |
 | --- | --- | --- |
 | Resolver commit | — | Obtém o SHA completo da ponta de `BRANCH` uma única vez. |
-| Build | `frontend-build` e `backend-build`, em paralelo | Compilam o frontend e o backend e arquivam os arquivos gerados. |
+| Build | `frontend-build` e `backend-build`, em paralelo | Testam e compilam o frontend, compilam o backend e arquivam os arquivos gerados. |
 | Testes | `backend-unit-igor` e `backend-integration-coverage`, em paralelo | Publicam o JUnit dos unitários, o JUnit de integração e a cobertura. |
-| Deploy | `backend-deploy` | Testa, compila e publica o backend no agente, preservando o SQLite. Veja o [guia do deploy](../ci-cd/deploy.md). |
+| Deploy | `backend-deploy` | Constrói a imagem com o mesmo SHA, verifica-a num contêiner temporário e a publica no Docker Hub com a tag do SHA. Veja o [guia do deploy](../ci-cd/deploy.md). |
 
 Um estágio só começa se o anterior terminou com sucesso. Se qualquer job falhar, a pipeline termina em `FAILURE` e os estágios seguintes, inclusive o Deploy, não são executados. Dentro de um estágio paralelo, o outro job continua até o fim, para que os dois resultados fiquem registrados.
 
@@ -192,6 +193,7 @@ A pipeline também é manual: não há gatilho por push ou PR.
 - Ambiente instalado e agente conectado, conforme a [seção 3](#3-primeira-instalação).
 - Imagem do controlador reconstruída depois de atualizar `infra/jenkins/jobs.groovy`, como em [Aplicar atualizações do ambiente](#aplicar-atualizações-do-ambiente). Confira que os cinco jobs mostram os parâmetros **BRANCH** e **GIT_COMMIT_SHA** em **Build with Parameters**. Um job chamado pela pipeline sem esse parâmetro declarado falha de propósito, em vez de executar outro commit.
 - A branch escolhida publicada no GitHub, contendo o `Jenkinsfile` da raiz, os cinco Jenkinsfiles e `infra/jenkins/confirmar-revisao.groovy`.
+- Para o estágio Deploy: o agente com acesso ao Docker Desktop e a credencial `dockerhub-credentials` cadastrada, conforme o [guia do deploy](../ci-cd/deploy.md#acesso-do-agente-ao-docker).
 
 ### Como executar
 
@@ -212,7 +214,7 @@ O agente tem um único executor. O orquestrador não o ocupa enquanto espera: el
 
 Assim, um push feito durante a execução não muda o código usado pelos jobs seguintes. Se o commit escolhido deixar de existir no GitHub, por exemplo após um force-push, o job falha: não há substituição silenciosa pela ponta atual da branch.
 
-O deploy compila o backend novamente, a partir do mesmo SHA; ele não reaproveita os arquivos arquivados pelo `backend-build`.
+O deploy constrói a imagem a partir do mesmo SHA, compilando o frontend e o backend dentro dela; ele não reaproveita os arquivos arquivados pelos jobs de build. A tag da imagem é esse SHA completo.
 
 ### Execução manual dos jobs individuais
 
@@ -232,7 +234,7 @@ Validações manuais realizadas pela equipe em 17/10/2026, numa instância local
 | --- | --- | --- |
 | Sucesso | `Branch-Donatto`, `31c1aa31647bb2f105ebc5f3556940353980a1c9` | Os cinco jobs passaram usando o mesmo SHA: `frontend-build` #1, `backend-build` #3, `backend-unit-igor` #1, `backend-integration-coverage` #4 e `backend-deploy` #1. |
 | Bloqueio do deploy | `ci/validar-bloqueio-deploy`, `de977207098134a4820f4560226075486ad2781d` | Com um teste unitário que falha de propósito, os builds passaram, e `backend-unit-igor` #2 e `backend-integration-coverage` #5 falharam. A falha também no job de integração é esperada, pois a etapa de cobertura executa a suíte completa, que inclui os unitários. A pipeline terminou em `FAILURE` sem executar o estágio Deploy. |
-| Persistência do SQLite | `Branch-Donatto` | Um registro fictício criado no banco publicado manteve o mesmo id e nome após uma nova execução da pipeline com `SUCCESS`. Detalhes no [guia do deploy](../ci-cd/deploy.md#validação-da-persistência). |
+| Persistência do SQLite | `Branch-Donatto` | Um registro fictício criado no banco publicado manteve o mesmo id e nome após uma nova execução da pipeline com `SUCCESS`. Detalhes no [guia do deploy](../ci-cd/deploy.md#versão-anterior-deploy-em-pasta-do-agente). |
 
 A branch `ci/validar-bloqueio-deploy` existe apenas para essa validação e não deve ser integrada à `main`.
 
@@ -304,19 +306,21 @@ Mudanças apenas no código ou nos Jenkinsfiles não exigem reconstruir o ambien
 
 | Arquivo | Responsabilidade |
 | --- | --- |
-| [compose.jenkins.yaml](../../compose.jenkins.yaml) | Define os serviços, a porta local, os volumes e a montagem do segredo. |
+| [compose.jenkins.yaml](../../compose.jenkins.yaml) | Define os serviços, a porta local, os volumes, a montagem do segredo e o acesso do agente ao Docker Desktop. |
 | [infra/jenkins/Dockerfile](../../infra/jenkins/Dockerfile) | Constrói a imagem do controlador com plugins e arquivos de configuração. |
 | [infra/jenkins/plugins.txt](../../infra/jenkins/plugins.txt) | Define os plugins e suas versões. |
 | [infra/jenkins/jenkins.yaml](../../infra/jenkins/jenkins.yaml) | Aplica as configurações do Jenkins por JCasC e carrega os jobs. |
 | [infra/jenkins/jobs.groovy](../../infra/jenkins/jobs.groovy) | Cria os seis jobs manuais, com os parâmetros `BRANCH` e, nos cinco jobs chamados pela pipeline, `GIT_COMMIT_SHA`. |
 | [Jenkinsfile](../../Jenkinsfile) | Define a pipeline completa: resolve o commit e encadeia os cinco jobs. |
 | [infra/jenkins/confirmar-revisao.groovy](../../infra/jenkins/confirmar-revisao.groovy) | Confere, em cada job, se o código obtido é a revisão pedida. |
-| [infra/jenkins/agent/Dockerfile](../../infra/jenkins/agent/Dockerfile) | Constrói o agente com Java, Git, Node.js e npm. |
+| [infra/jenkins/agent/Dockerfile](../../infra/jenkins/agent/Dockerfile) | Constrói o agente com Java, Git, Node.js, npm e a CLI do Docker com `buildx`. |
 | [frontend/Jenkinsfile](../../frontend/Jenkinsfile) | Define as etapas do build do frontend. |
 | [backend/Jenkinsfile](../../backend/Jenkinsfile) | Define o build do backend. |
 | [backend/Jenkinsfile.unit](../../backend/Jenkinsfile.unit) | Define os testes unitários do backend. |
 | [backend/Jenkinsfile.integration](../../backend/Jenkinsfile.integration) | Define as etapas de integração e cobertura do backend. |
-| [backend/Jenkinsfile.deploy](../../backend/Jenkinsfile.deploy) | Define o deploy local do backend. |
+| [backend/Jenkinsfile.deploy](../../backend/Jenkinsfile.deploy) | Constrói, verifica e publica a imagem no Docker Hub. |
+| [Dockerfile](../../Dockerfile) e [.dockerignore](../../.dockerignore) | Definem a imagem da aplicação: frontend e API na mesma origem, SQLite em `/data`. |
+| [infra/jenkins/verificar-imagem.js](../../infra/jenkins/verificar-imagem.js) | Testa a aplicação dentro do contêiner de verificação. |
 | `.secrets/jenkins-agent-secret.txt` | Armazena a credencial local do agente; não é versionado. |
 
 A porta `8081` é usada pelo navegador. Dentro da rede do Compose, o agente acessa o controlador em `http://jenkins:8080/`: `jenkins` é o nome do serviço e `8080` é sua porta interna. Não troque esse endereço por `localhost:8081`, pois `localhost` dentro do agente aponta para o próprio contêiner.

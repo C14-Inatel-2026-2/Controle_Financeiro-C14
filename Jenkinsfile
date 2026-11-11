@@ -17,7 +17,7 @@ properties([
         )
     ]),
 
-    // Duas execuções simultâneas disputariam o mesmo agente e a mesma pasta de deploy.
+    // Duas execuções simultâneas disputariam o mesmo agente e a mesma publicação da imagem.
     disableConcurrentBuilds(),
 
     // Limita o histórico armazenado neste Jenkins local.
@@ -97,6 +97,7 @@ timeout(time: 60, unit: 'MINUTES') {
 
     // Só chega aqui se o build e os testes passaram: o build step propaga a
     // falha por padrão, interrompendo a pipeline antes de publicar qualquer coisa.
+    // O backend-deploy constrói a imagem com este mesmo SHA e a publica no Docker Hub.
     stage('Deploy') {
         build job: 'backend-deploy',
               parameters: parametros

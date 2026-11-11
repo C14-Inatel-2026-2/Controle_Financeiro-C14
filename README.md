@@ -18,7 +18,7 @@ O projeto é composto por:
 
 - **Backend** (`backend/`): API em Node.js com Express e TypeScript, persistência em SQLite (`node:sqlite`) e testes com Vitest.
 - **Frontend** (`frontend/`): aplicação React com Vite e TypeScript.
-- **Integração contínua** (`infra/jenkins/`, `Jenkinsfile`): Jenkins em Docker executando builds, testes e deploy local.
+- **Integração contínua** (`infra/jenkins/`, `Jenkinsfile`): Jenkins em Docker executando builds, testes e a publicação da imagem da aplicação no Docker Hub (`bunnyzzw/controle-financeiro-c14`).
 
 A pasta `ui/` contém telas demonstrativas (protótipos visuais). Elas representam a interface pretendida e não correspondem a funcionalidades implementadas.
 
@@ -80,7 +80,7 @@ Não há metas de desempenho, de cobertura mínima ou de disponibilidade definid
 - **Pretendido**: os dados financeiros permanecem salvos entre execuções e o esquema do banco evolui por migrations sem perda de dados.
 - **Evidência por inspeção**: o SQLite é aberto com chaves estrangeiras habilitadas e a migration 1 é aplicada uma única vez. O teste de integração verifica que reaplicar a migration preserva os dados e que e-mails duplicados são recusados. O arquivo do banco não é versionado.
 - **Comprovado por execução (testes automatizados)**: esse teste faz parte do job `backend-integration-coverage`, concluído com sucesso na execução de 17/10/2026. Ele usa banco em memória (`:memory:`) e, portanto, não verifica a gravação em arquivo.
-- **Comprovado por execução (validação manual)**: em 17/10/2026, na branch `Branch-Donatto`, o grupo criou um registro fictício na tabela `usuarios` do arquivo SQLite publicado pelo deploy, executou novamente a pipeline completa com deploy, consultou o registro, que manteve o mesmo id e o mesmo nome, e depois o removeu. O procedimento está documentado em [Deploy local - Validação da persistência](docs/ci-cd/deploy.md#validação-da-persistência). Isso comprova que o arquivo do banco é preservado entre deploys.
+- **Comprovado por execução (validação manual)**: em 17/10/2026, na branch `Branch-Donatto`, o grupo criou um registro fictício na tabela `usuarios` do arquivo SQLite publicado pelo deploy, executou novamente a pipeline completa com deploy, consultou o registro, que manteve o mesmo id e o mesmo nome, e depois o removeu. O procedimento está documentado em [registro do deploy anterior](docs/ci-cd/deploy.md#versão-anterior-deploy-em-pasta-do-agente). Isso comprova que o arquivo do banco é preservado entre deploys.
 - **Não comprovado**: persistência pela API no ambiente de deploy (a validação manual escreveu o registro diretamente no arquivo; a gravação pelo `POST /users` em arquivo SQLite, reaberto em seguida, é verificada apenas pelo teste `backend/tests/integration/cadastro-sqlite.test.ts`), preservação após reinício do contêiner e funcionamento em uma instalação do zero.
 - **Pendente**: somente usuários e movimentações têm tabela; categorias, metas, cartões e faturas importadas ainda não são persistidos.
 
@@ -89,7 +89,7 @@ Não há metas de desempenho, de cobertura mínima ou de disponibilidade definid
 - **Pretendido**: antes de cada merge na `main`, o grupo executa a pipeline completa sobre a branch do pull request e confere que todos os checks terminaram com sucesso.
 - **Evidência por inspeção**: o backend possui testes unitários e de integração com Vitest, e o frontend possui testes do validador, dos serviços e das telas de cadastro, categorias e importação. A pipeline completa (`Jenkinsfile`) executa os builds do frontend e do backend, os testes unitários, os testes de integração com cobertura e o deploy local, repassando o mesmo SHA aos cinco jobs. Os jobs não têm gatilho automático configurado: a pipeline é disparada manualmente no Jenkins, informando a branch.
 - **Comprovado por execução**: a execução manual na `main` em 17/10/2026 terminou com sucesso, conforme o [registro da pipeline](docs/jenkins/evidencias/pipeline-completa-main-2026-10-17.txt).
-- **Pendente**: não há evidência de que o resultado do Jenkins bloqueie merges automaticamente; a conferência dos checks antes do merge é responsabilidade do grupo. Os testes do frontend ainda não são executados pelo Jenkins, e não há limite mínimo de cobertura configurado.
+- **Pendente**: não há evidência de que o resultado do Jenkins bloqueie merges automaticamente; a conferência dos checks antes do merge é responsabilidade do grupo. Os testes do frontend passaram a fazer parte do `frontend-build`, ainda sem execução registrada no Jenkins, e não há limite mínimo de cobertura configurado.
 
 ## Gestão ágil
 
@@ -112,13 +112,13 @@ O grupo utiliza **Kanban** no Trello para organizar o trabalho: [Kanban - Contro
 
 ## Jenkins
 
-Consulte o [guia de instalação e uso do Jenkins](docs/jenkins/README.md) para preparar o ambiente com Docker, executar manualmente o build do frontend e executar a [pipeline completa](docs/jenkins/README.md#5-executar-a-pipeline-completa), que encadeia builds, testes e deploy sobre um mesmo commit.
+Consulte o [guia de instalação e uso do Jenkins](docs/jenkins/README.md) para preparar o ambiente com Docker, executar manualmente o build do frontend e executar a [pipeline completa](docs/jenkins/README.md#5-executar-a-pipeline-completa), que encadeia builds, testes e a publicação da imagem sobre um mesmo commit.
 
 Guias dos jobs do backend:
 
 - [Testes unitários](docs/jenkins/unitarios.md)
 - [Testes de integração e cobertura](docs/jenkins/backend-integracao-cobertura.md)
-- [Deploy local](docs/ci-cd/deploy.md)
+- [Publicação da imagem no Docker Hub](docs/ci-cd/deploy.md), com os comandos para baixar e executar a imagem
 
 ## US05 — Metas financeiras
 

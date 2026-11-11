@@ -22,8 +22,10 @@ para uma resposta.
 - Nome `sessao`, `HttpOnly`, `SameSite=Lax`, `Path=/`, expira em 8 horas
   (`DURACAO_SESSAO_MS` em `backend/src/repositories/sessoes.ts`).
 - `Secure` é ligado quando `NODE_ENV=production`. Nesse ambiente a API deve
-  estar atrás de HTTPS. O deploy local do Jenkins roda por HTTP e não define
-  `NODE_ENV`, então funciona sem `Secure`.
+  estar atrás de HTTPS. Para testar a imagem por HTTP, defina
+  `COOKIE_SECURE=false` sem mexer no `NODE_ENV`. `COOKIE_SECURE=true` força o
+  `Secure`, e outro valor impede o servidor de subir (`backend/src/config.ts`).
+  Veja `docs/ci-cd/deploy.md`.
 - O banco guarda só o SHA-256 do token. Sessões vencidas deixam de valer na
   hora e são apagadas a cada novo login.
 
