@@ -140,7 +140,14 @@ pipeline {
                         fi
 
                         # Consulta o registro, e não a cópia local, para registrar o digest publicado.
-                        DIGEST=$(docker buildx imagetools inspect "$REFERENCIA" --format '{{.Manifest.Digest}}')
+                        # Um --format que começa por {{.Manifest imprime o texto completo (Name, MediaType...);
+                        # o JSON traz o digest da referência no topo e os internos só em manifests[].
+                        MANIFESTO=$(docker buildx imagetools inspect "$REFERENCIA" --format '{{json .Manifest}}')
+                        DIGEST=$(printf '%s' "$MANIFESTO" | node -e 'let s = ""; process.stdin.on("data", (d) => { s += d; }).on("end", () => { process.stdout.write(String(JSON.parse(s).digest || "")); });')
+                        if ! printf '%s\\n' "$DIGEST" | grep -Eqx 'sha256:[0-9a-f]{64}'; then
+                            echo "Digest inválido lido do registro para $REFERENCIA: '$DIGEST'"
+                            exit 1
+                        fi
                         printf 'referencia=%s\\ndigest=%s@%s\\nlatest=%s\\n' "$REFERENCIA" "$IMAGEM" "$DIGEST" "$PUBLICAR_LATEST" > imagem-publicada.txt
                         cat imagem-publicada.txt
                     '''
