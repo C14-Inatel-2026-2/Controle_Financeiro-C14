@@ -1,7 +1,7 @@
-import { Topo } from "../components/Topo";
+import { Topo, type PropsDaSessao } from "../components/Topo";
 import type { Tela } from "../navegacao";
 
-type Props = {
+type Props = PropsDaSessao & {
   aoNavegar: (tela: Tela) => void;
 };
 
@@ -30,12 +30,12 @@ function emReais(centavos: number): string {
   });
 }
 
-export function Dashboard({ aoNavegar }: Props) {
+export function Dashboard({ aoNavegar, usuario, aoSair }: Props) {
   const maior = Math.max(...GASTOS.map((gasto) => gasto.valor));
 
   return (
     <div className="ap-tela">
-      <Topo ativo="dashboard" aoNavegar={aoNavegar} />
+      <Topo ativo="dashboard" aoNavegar={aoNavegar} usuario={usuario} aoSair={aoSair} />
 
       <main className="ap-conteudo">
         <div className="ap-cabecalho">

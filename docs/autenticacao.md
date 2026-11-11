@@ -1,4 +1,4 @@
-# Autenticação (RF02) — backend
+# Autenticação (RF02)
 
 O login cria uma sessão guardada no SQLite (tabela `sessoes`, migration 4) e
 envia o identificador dela num cookie. O navegador guarda e reenvia esse cookie
@@ -62,32 +62,52 @@ Usam esse contrato hoje:
   `invoiceIdentity: (req) => req.usuario?.id`. A prévia continua pública, e a
   confirmação sem sessão responde `401 AUTHENTICATION_REQUIRED`.
 
-## Pendente: login pela tela
+## Login pela tela
 
-A API de login está pronta e é testada, inclusive dentro da imagem Docker, mas
-a tela `frontend/src/pages/Login.tsx` ainda não a chama: ela só confere o
-preenchimento e libera a navegação. Sem sessão, a tela de categorias e a
-confirmação de faturas respondem 401. O contorno para demonstrações está no
-[guia rápido do deploy](ci-cd/deploy.md#limitações-para-quem-for-demonstrar).
+O frontend usa a API acima pelo `ServicoDeAutenticacao`
+(`frontend/src/services/ServicoDeAutenticacao.ts`), com os métodos `entrar`,
+`usuarioAtual` e `sair`. Senha e token não são guardados no `localStorage` nem
+em outro lugar do navegador. A sessão é só o cookie `HttpOnly`. As chamadas
+usam caminhos relativos (`/api/...`), então o `fetch` envia o cookie por ser
+mesma origem, tanto pelo proxy do Vite em `npm run dev` quanto na imagem, que
+serve o frontend junto da API. Se a API um dia ficar em outra origem, será
+preciso `credentials: "include"` e CORS com credenciais.
 
-O que a tela precisa fazer:
+- **Login** (`frontend/src/pages/Login.tsx`): confere o preenchimento e envia
+  `POST /api/auth/login`. Só entra na área interna com `200`. `401` (senha
+  errada ou e-mail inexistente) e `400` mostram `erro.mensagem` da API, por
+  exemplo "E-mail ou senha incorretos.", e a pessoa continua no login. Falha de
+  rede ou outro status mostra "Não foi possível entrar. Tente novamente." e
+  libera o botão para uma nova tentativa. Durante o envio, o botão fica
+  desabilitado ("Entrando...").
+- **Ao abrir o app** (`frontend/src/App.tsx`): `GET /api/auth/me` decide a
+  tela. Enquanto a resposta não chega, só aparece "Carregando...". Com `200`, o
+  usuário fica no estado do App e a Home abre, inclusive depois de F5. Com
+  `401` ou API fora do ar, a página inicial pública abre.
+- **Telas internas** (Início, Dashboard, Categorias e Importar fatura) só
+  abrem com usuário no estado. Sem ele, o App mostra o login.
+- **Sair** (no topo): `POST /api/auth/logout`. Com a resposta `204`, o App
+  limpa o usuário e mostra o login. Se a saída falhar, a pessoa continua
+  conectada e o topo mostra o erro. As telas internas são desmontadas ao sair,
+  então a próxima conta não vê os dados carregados pela anterior.
+- **Sessão expirada:** quando uma chamada protegida responde `401` (listar ou
+  criar categorias, confirmar fatura), o serviço lança `SessaoExpiradaError`. A
+  tela avisa o App, que limpa o usuário e volta ao login com "Sua sessão
+  expirou. Entre novamente.". O `401` do próprio login não usa esse erro e só
+  mostra a mensagem de credenciais inválidas.
+- **Nome da conta:** o topo mostra o primeiro nome e as iniciais do usuário
+  (primeira letra do primeiro e do último nome: "Ana Teste" → "AT"), e a Home
+  mostra "Olá, Ana.".
 
-1. Enviar `POST /api/auth/login` com `Content-Type: application/json` e
-   `{ email, senha }`. Na mesma origem, que é o caso do proxy `/api` do Vite,
-   o `fetch` já envia e guarda o cookie. Se a API ficar em outra origem, use
-   `credentials: "include"`.
-2. `200`: o corpo traz `{ id, nome, email }`. Navegar para a área interna.
-3. `401`: mostrar "E-mail ou senha incorretos." (vem em `erro.mensagem`).
-4. `400`: mostrar `erro.mensagem` junto do campo indicado em `erro.campo`.
-5. Outro status ou falha de rede: mensagem geral, por exemplo "Não foi possível
-   entrar. Tente novamente.".
-6. Desabilitar o botão enquanto a requisição estiver em andamento, como na
-   tela de cadastro.
-7. Ao abrir o app, `GET /api/auth/me` diz se ainda há sessão: `200` com o
-   usuário ou `401`.
-8. Botão "Sair": `POST /api/auth/logout` e voltar para a tela inicial.
-9. Qualquer chamada protegida que responda `401` (sessão expirada) deve levar
-   de volta ao login.
+A navegação continua guardada na memória do App, sem endereço por tela. Depois
+de F5 a pessoa volta à Home, não à tela em que estava, e o Voltar do navegador
+não troca de tela.
+
+Testes: `frontend/src/services/ServicoDeAutenticacao.test.ts` (contrato das três
+rotas), `frontend/src/pages/Login.test.tsx` (login válido, credenciais
+inválidas, falha de rede com nova tentativa e envio repetido) e
+`frontend/src/App.test.tsx` (sessão ao abrir, área interna bloqueada, Sair, troca
+de conta, falha no logout e sessão expirada).
 
 ## Fora do escopo desta entrega
 

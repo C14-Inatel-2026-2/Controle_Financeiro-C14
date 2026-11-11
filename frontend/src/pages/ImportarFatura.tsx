@@ -3,13 +3,14 @@ import {
   prepararPdf, ServicoDeImportacao, type ApiImportacao, type EntradaFatura,
   type OpcoesFatura, type PreviaFatura,
 } from "../services/ServicoDeImportacao";
+import { SessaoExpiradaError } from "../services/ServicoDeAutenticacao";
 import "./ImportarFatura.css";
 
 const defaultApi = new ServicoDeImportacao();
 const reais = (cents: number) => (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-type Props = { aoVoltar: () => void; api?: ApiImportacao };
+type Props = { aoVoltar: () => void; aoSessaoExpirada: () => void; api?: ApiImportacao };
 
-export function ImportarFatura({ aoVoltar, api = defaultApi }: Props) {
+export function ImportarFatura({ aoVoltar, aoSessaoExpirada, api = defaultApi }: Props) {
   const [options, setOptions] = useState<OpcoesFatura>();
   const [retry, setRetry] = useState(0);
   const [bank, setBank] = useState("template");
@@ -62,6 +63,7 @@ export function ImportarFatura({ aoVoltar, api = defaultApi }: Props) {
       setPreview(undefined); previewSource.current = undefined; setFile(undefined); setCsv(""); setPassword("");
       if (fileInput.current) fileInput.current.value = "";
     } catch (failure) {
+      if (failure instanceof SessaoExpiradaError) return aoSessaoExpirada();
       setError(failure instanceof Error ? failure.message : "Não foi possível confirmar a importação.");
     } finally { setBusy(false); }
   }

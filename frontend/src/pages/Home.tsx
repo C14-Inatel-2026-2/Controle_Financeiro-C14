@@ -1,8 +1,9 @@
 import { useRef } from "react";
-import { Topo } from "../components/Topo";
+import { Topo, type PropsDaSessao } from "../components/Topo";
 import type { Tela } from "../navegacao";
+import { primeiroNome } from "../utils/nomeDoUsuario";
 
-type Props = {
+type Props = PropsDaSessao & {
   aoNavegar: (tela: Tela) => void;
 };
 
@@ -61,7 +62,7 @@ const ATALHOS: {
   },
 ];
 
-export function Home({ aoNavegar }: Props) {
+export function Home({ aoNavegar, usuario, aoSair }: Props) {
   // A referência aponta para a faixa de cards, para as setas rolarem ela.
   const faixa = useRef<HTMLDivElement>(null);
 
@@ -71,10 +72,10 @@ export function Home({ aoNavegar }: Props) {
 
   return (
     <div className="ap-tela">
-      <Topo ativo="home" aoNavegar={aoNavegar} />
+      <Topo ativo="home" aoNavegar={aoNavegar} usuario={usuario} aoSair={aoSair} />
 
       <main className="ap-conteudo ap-conteudo-home">
-        <h1 className="ap-saudacao">Bom dia, Donatto.</h1>
+        <h1 className="ap-saudacao">Olá, {primeiroNome(usuario.nome)}.</h1>
         <p className="ap-subtitulo">O que você quer fazer agora?</p>
 
         <div className="ap-cabecalho-secao">

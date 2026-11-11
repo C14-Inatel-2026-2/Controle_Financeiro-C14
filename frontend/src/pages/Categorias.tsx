@@ -1,13 +1,16 @@
 import { useEffect, useState } from "react";
-import { Topo } from "../components/Topo";
+import { Topo, type PropsDaSessao } from "../components/Topo";
 import type { Tela } from "../navegacao";
 import { ServicoDeCategorias, type Categoria } from "../services/ServicoDeCategorias";
+import { SessaoExpiradaError } from "../services/ServicoDeAutenticacao";
 
 // Fora do componente: uma instância nova a cada render dispararia o useEffect de novo.
 const servicoPadrao = new ServicoDeCategorias();
 
-type Props = {
+type Props = PropsDaSessao & {
   aoNavegar: (tela: Tela) => void;
+  // Chamado quando a API responde 401: o App volta ao login.
+  aoSessaoExpirada: () => void;
   servico?: Pick<ServicoDeCategorias, "listar" | "criar">;
 };
 
@@ -15,7 +18,7 @@ type Props = {
 // não distingue bem as cores consegue separar uma categoria da outra.
 const CORES = ["#3987e5", "#d95926", "#199e70", "#c98500", "#d55181", "#008300"];
 
-export function Categorias({ aoNavegar, servico = servicoPadrao }: Props) {
+export function Categorias({ aoNavegar, usuario, aoSair, aoSessaoExpirada, servico = servicoPadrao }: Props) {
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [erroLista, setErroLista] = useState("");
@@ -29,10 +32,14 @@ export function Categorias({ aoNavegar, servico = servicoPadrao }: Props) {
     servico
       .listar()
       .then((lista) => { if (ativo) setCategorias(lista); })
-      .catch((erro: Error) => { if (ativo) setErroLista(erro.message); })
+      .catch((erro: Error) => {
+        if (!ativo) return;
+        if (erro instanceof SessaoExpiradaError) aoSessaoExpirada();
+        else setErroLista(erro.message);
+      })
       .finally(() => { if (ativo) setCarregando(false); });
     return () => { ativo = false; };
-  }, [servico]);
+  }, [servico, aoSessaoExpirada]);
 
   async function salvar() {
     if (salvando) return;
@@ -48,6 +55,7 @@ export function Categorias({ aoNavegar, servico = servicoPadrao }: Props) {
       setNome("");
       setCriando(false);
     } catch (erro) {
+      if (erro instanceof SessaoExpiradaError) return aoSessaoExpirada();
       setErroNome(erro instanceof Error ? erro.message : "Não foi possível criar a categoria.");
     } finally {
       setSalvando(false);
@@ -56,7 +64,7 @@ export function Categorias({ aoNavegar, servico = servicoPadrao }: Props) {
 
   return (
     <div className="ap-tela">
-      <Topo ativo="categorias" aoNavegar={aoNavegar} />
+      <Topo ativo="categorias" aoNavegar={aoNavegar} usuario={usuario} aoSair={aoSair} />
 
       <main className="ap-conteudo">
         <div className="ap-cabecalho">

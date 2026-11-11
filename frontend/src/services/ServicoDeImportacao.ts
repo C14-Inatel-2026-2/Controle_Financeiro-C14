@@ -1,3 +1,5 @@
+import { SessaoExpiradaError } from "./ServicoDeAutenticacao";
+
 export type EntradaFatura =
   | { mode: "template"; content: string }
   | { mode: "known-bank"; bankId: string; file: { fileName: string; mimeType: string; base64: string; password?: string } };
@@ -29,6 +31,8 @@ export class ServicoDeImportacao implements ApiImportacao {
     const response = await fetch(this.baseUrl + path, body === undefined ? undefined : {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
     });
+    // Só a confirmação exige sessão; o 401 dela quer dizer sessão expirada.
+    if (response.status === 401) throw new SessaoExpiradaError();
     const data = await response.json().catch(() => null);
     if (!response.ok) throw new Error(data?.erro?.mensagem ?? "Não foi possível processar a fatura.");
     if (data === null) throw new Error("A API retornou uma resposta inválida.");

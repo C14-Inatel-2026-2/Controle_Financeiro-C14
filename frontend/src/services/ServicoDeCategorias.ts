@@ -1,3 +1,5 @@
+import { SessaoExpiradaError } from "./ServicoDeAutenticacao";
+
 export type Categoria = {
   id: number;
   name: string;
@@ -31,8 +33,9 @@ export class ServicoDeCategorias {
       throw new Error(mensagemPadrao);
     }
 
+    // 401 aqui quer dizer sessão expirada: o App volta ao login.
     if (resposta.status === 401) {
-      throw new Error("Faça login para ver suas categorias.");
+      throw new SessaoExpiradaError();
     }
 
     const dados = await resposta.json().catch(() => null);

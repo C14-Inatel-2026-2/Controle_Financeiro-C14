@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { prepararPdf, ServicoDeImportacao } from "./ServicoDeImportacao";
+import { SessaoExpiradaError } from "./ServicoDeAutenticacao";
 
 afterEach(() => vi.unstubAllGlobals());
 describe("ServicoDeImportacao com rede simulada", () => {
@@ -22,6 +23,11 @@ describe("ServicoDeImportacao com rede simulada", () => {
   it("apresenta a mensagem de rejeição do servidor", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, json: async () => ({ erro: { mensagem: "Fatura duplicada" } }) }));
     await expect(new ServicoDeImportacao().preview({ mode: "template", content: "CSV" })).rejects.toThrow("Fatura duplicada");
+  });
+  it("indica sessão expirada quando a confirmação responde 401", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 401, json: async () => ({}) }));
+    await expect(new ServicoDeImportacao().confirm({ mode: "template", content: "CSV" }, "hash"))
+      .rejects.toBeInstanceOf(SessaoExpiradaError);
   });
   it("trata resposta de erro que não seja JSON", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, json: async () => { throw new Error("HTML"); } }));

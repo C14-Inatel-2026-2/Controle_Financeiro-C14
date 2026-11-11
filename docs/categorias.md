@@ -20,9 +20,9 @@ A regra de nome continua no `createCategoryService`, que já existia. Duas
 contas podem ter categorias com o mesmo nome. Assim como nas metas, a
 comparação diferencia maiúsculas ("Lazer" e "lazer" são categorias diferentes).
 
-A tela `frontend/src/pages/Categorias.tsx` lista e cria categorias pela API.
-Enquanto a tela de login não criar a sessão, ela mostra "Faça login para ver
-suas categorias." (veja o [login pela tela](autenticacao.md#pendente-login-pela-tela)).
+A tela `frontend/src/pages/Categorias.tsx` lista e cria categorias pela API com a
+sessão criada pelo [login pela tela](autenticacao.md#login-pela-tela). Se a API
+responder 401 (sessão expirada), o app volta ao login.
 
 ## Movimentações com categoria
 
@@ -78,4 +78,3 @@ Os testes do repositório estão em `backend/tests/integration/categories.test.t
 
 - Tela de movimentações, com escolha da categoria.
 - Totais por categoria (resumo do RF07).
-- Login pela tela, para a tela de categorias funcionar sem contorno.

@@ -1,13 +1,18 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { Categorias } from "./Categorias";
+import { SessaoExpiradaError } from "../services/ServicoDeAutenticacao";
 
 afterEach(cleanup);
 
 type Servico = NonNullable<Parameters<typeof Categorias>[0]["servico"]>;
 
-function abrir(servico: Servico) {
-  render(<Categorias aoNavegar={vi.fn()} servico={servico} />);
+const usuario = { id: 1, nome: "Ana Teste", email: "ana@email.com" };
+
+function abrir(servico: Servico, aoSessaoExpirada = vi.fn()) {
+  render(
+    <Categorias aoNavegar={vi.fn()} servico={servico} usuario={usuario} aoSair={vi.fn()} aoSessaoExpirada={aoSessaoExpirada} />,
+  );
 }
 
 function digitarESalvar(nome: string) {
@@ -32,9 +37,15 @@ describe("Tela de categorias com API simulada", () => {
   });
 
   it("mostra o erro ao carregar", async () => {
-    abrir({ listar: vi.fn().mockRejectedValue(new Error("Faça login para ver suas categorias.")), criar: vi.fn() });
-    expect((await screen.findByRole("alert")).textContent).toBe("Faça login para ver suas categorias.");
+    abrir({ listar: vi.fn().mockRejectedValue(new Error("Não foi possível carregar as categorias.")), criar: vi.fn() });
+    expect((await screen.findByRole("alert")).textContent).toBe("Não foi possível carregar as categorias.");
     expect(screen.queryByText(/Nenhuma categoria ainda/)).toBeNull();
+  });
+
+  it("avisa o App quando a sessão expirou", async () => {
+    const aoSessaoExpirada = vi.fn();
+    abrir({ listar: vi.fn().mockRejectedValue(new SessaoExpiradaError()), criar: vi.fn() }, aoSessaoExpirada);
+    await vi.waitFor(() => expect(aoSessaoExpirada).toHaveBeenCalledTimes(1));
   });
 
   it("cria uma categoria e a mostra na lista", async () => {

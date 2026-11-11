@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ServicoDeCategorias } from "./ServicoDeCategorias";
+import { SessaoExpiradaError } from "./ServicoDeAutenticacao";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -31,9 +32,9 @@ describe("ServicoDeCategorias", () => {
     await expect(new ServicoDeCategorias().criar("Lazer")).rejects.toThrow("A categoria Lazer já está cadastrada");
   });
 
-  it("pede login quando a sessão não existe", async () => {
+  it("indica sessão expirada quando a API responde 401", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 401, json: async () => ({}) }));
-    await expect(new ServicoDeCategorias().listar()).rejects.toThrow("Faça login para ver suas categorias.");
+    await expect(new ServicoDeCategorias().listar()).rejects.toBeInstanceOf(SessaoExpiradaError);
   });
 
   it("avisa em português quando a API está fora do ar", async () => {
