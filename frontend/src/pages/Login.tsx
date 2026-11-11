@@ -1,20 +1,27 @@
 import { useState } from "react";
+import { ServicoDeAutenticacao } from "../services/ServicoDeAutenticacao";
+import type { Usuario } from "../services/ServicoDeCadastro";
 
-// Esta tela valida somente o preenchimento e navega para a área interna.
-// A verificação da senha no servidor depende da integração com a autenticação.
+// A tela confere o preenchimento e só avança depois que a API confirma o login.
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 type Props = {
-  aoEntrar: () => void;
+  aoEntrar: (usuario: Usuario) => void;
   aoCriarConta: () => void;
+  // Mensagem vinda do App, por exemplo quando a sessão expirou.
+  aviso?: string;
+  servico?: Pick<ServicoDeAutenticacao, "entrar">;
 };
 
-export function Login({ aoEntrar, aoCriarConta }: Props) {
+export function Login({ aoEntrar, aoCriarConta, aviso = "", servico = new ServicoDeAutenticacao() }: Props) {
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [erros, setErros] = useState<{ email?: string; senha?: string }>({});
+  const [erroApi, setErroApi] = useState("");
+  const [enviando, setEnviando] = useState(false);
 
-  function entrar() {
+  async function entrar() {
+    if (enviando) return;
     const novosErros: { email?: string; senha?: string } = {};
 
     if (!EMAIL.test(email.trim())) {
@@ -26,11 +33,17 @@ export function Login({ aoEntrar, aoCriarConta }: Props) {
     }
 
     setErros(novosErros);
+    setErroApi("");
+    if (Object.keys(novosErros).length > 0) return;
 
-    // Ainda não existe rota de login na API: por enquanto o acesso é liberado
-    // quando o formulário está preenchido.
-    if (Object.keys(novosErros).length === 0) {
-      aoEntrar();
+    setEnviando(true);
+    try {
+      const usuario = await servico.entrar(email, senha);
+      aoEntrar(usuario);
+    } catch (erro) {
+      // 401 (senha errada ou e-mail inexistente) e falha de rede caem aqui.
+      setErroApi(erro instanceof Error ? erro.message : "Não foi possível entrar. Tente novamente.");
+      setEnviando(false);
     }
   }
 
@@ -96,7 +109,12 @@ export function Login({ aoEntrar, aoCriarConta }: Props) {
             {erros.senha && <span className="erro">{erros.senha}</span>}
           </label>
 
-          <button type="submit">Entrar</button>
+          <button type="submit" disabled={enviando}>
+            {enviando ? "Entrando..." : "Entrar"}
+          </button>
+
+          {erroApi && <p className="erro" role="alert">{erroApi}</p>}
+          {!erroApi && aviso && <p className="erro" role="status">{aviso}</p>}
 
           <p className="rodape-form">
             Não tem conta?{" "}

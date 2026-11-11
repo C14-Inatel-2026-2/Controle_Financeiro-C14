@@ -218,8 +218,9 @@ await fetch("/api/auth/login", {
 }).then((resposta) => resposta.status)   // 200 = sessão criada
 ```
 
-Apresente isso como um contorno: o login pela tela ainda é uma pendência
-([autenticação](../autenticacao.md#pendente-login-pela-tela)).
+Apresente isso como um contorno. O [login pela tela](../autenticacao.md#login-pela-tela)
+já existe no código da `Branch-Caio`, mas só chega à imagem depois do merge e de
+uma nova publicação. Até lá, a tag `5060557…` continua com as limitações acima.
 
 ### Configuração da imagem
 

@@ -19,7 +19,7 @@ function setup(confirmationAvailable = true) {
     preview: vi.fn().mockResolvedValue(preview),
     confirm: vi.fn().mockResolvedValue({ importId: 1, importedCount: 1, totalInCents: 12590 }),
   };
-  render(<ImportarFatura api={api} aoVoltar={vi.fn()} />);
+  render(<ImportarFatura api={api} aoVoltar={vi.fn()} aoSessaoExpirada={vi.fn()} />);
   return api;
 }
 async function generate() {
@@ -87,7 +87,7 @@ describe("Tela de importação com API simulada", () => {
   it("permite tentar novamente a consulta de formatos", async () => {
     const api = setup(); api.options.mockRejectedValueOnce(new Error("offline"));
     // Nova montagem usa a falha preparada, sem depender de chamadas reais de rede.
-    cleanup(); render(<ImportarFatura api={api} aoVoltar={vi.fn()} />);
+    cleanup(); render(<ImportarFatura api={api} aoVoltar={vi.fn()} aoSessaoExpirada={vi.fn()} />);
     await screen.findByRole("alert");
     fireEvent.click(screen.getByRole("button", { name: "Tentar novamente" }));
     await waitFor(() => expect(screen.getByLabelText("Conteúdo CSV")).toBeTruthy());
