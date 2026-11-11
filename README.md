@@ -24,7 +24,7 @@ A pasta `ui/` contém telas demonstrativas (protótipos visuais). Elas represent
 
 ## Requisitos funcionais
 
-Classificação histórica da documentação da `main`; a situação atual da importação nesta contribuição está na seção acima. As linhas RF01, RF02 e RF04 foram atualizadas com as entregas de cadastro, login e categorias; as demais não foram reavaliadas:
+Classificação histórica da documentação da `main` (linha alterada só para testar conflito no Jenkins; este PR nunca deve ser integrado); a situação atual da importação nesta contribuição está na seção acima. As linhas RF01, RF02 e RF04 foram atualizadas com as entregas de cadastro, login e categorias; as demais não foram reavaliadas:
 
 - **Implementado**: funciona de ponta a ponta para o usuário (interface, API e persistência, quando aplicáveis) e é coberto por testes.
 - **Parcialmente implementado**: existem regras de negócio, persistência ou telas, mas o fluxo completo ainda não está disponível ao usuário.
