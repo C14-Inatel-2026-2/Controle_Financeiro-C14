@@ -1,0 +1,79 @@
+// Validação de pull requests para a main, usada pelo job pr-validacao.
+//
+// O job (infra/jenkins/jobs.groovy) consulta o GitHub a cada poucos minutos e,
+// para cada PR aberto a partir deste repositório, mescla a branch do PR com a
+// ponta atual da main só no workspace do agente. Nada é enviado ao GitHub além
+// do status do commit. Conflito com a main faz o checkout falhar e reprova o PR.
+//
+// As etapas repetem os comandos dos jobs da pipeline completa (frontend-build,
+// backend-build, backend-unit-igor e backend-integration-coverage), sem a
+// cobertura e sem construir ou publicar a imagem.
+pipeline {
+    agent { label 'node24' }
+
+    options {
+        skipDefaultCheckout(true)
+        disableConcurrentBuilds()
+        timeout(time: 30, unit: 'MINUTES')
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+    }
+
+    stages {
+        stage('Obter código') {
+            steps {
+                deleteDir()
+
+                // Busca a branch do PR e a main e faz a mesclagem local.
+                checkout scm
+
+                // Registra no console exatamente o que foi testado.
+                sh 'git log -1 --format="Testando %H (pais: %P)"'
+            }
+        }
+
+        stage('Frontend') {
+            steps {
+                dir('frontend') {
+                    sh 'npm ci'
+                    sh 'npm test'
+                    sh 'npm run build'
+                }
+            }
+        }
+
+        stage('Backend: build') {
+            steps {
+                dir('backend') {
+                    sh 'npm ci'
+                    sh 'npm run build'
+                }
+            }
+        }
+
+        stage('Backend: testes unitários') {
+            steps {
+                dir('backend') {
+                    sh 'npm run test:unit'
+                }
+            }
+            post {
+                always {
+                    junit testResults: 'backend/reports/unit/junit.xml', allowEmptyResults: true
+                }
+            }
+        }
+
+        stage('Backend: testes de integração') {
+            steps {
+                dir('backend') {
+                    sh 'npm run test:integration'
+                }
+            }
+            post {
+                always {
+                    junit testResults: 'backend/reports/integration.xml', allowEmptyResults: true
+                }
+            }
+        }
+    }
+}

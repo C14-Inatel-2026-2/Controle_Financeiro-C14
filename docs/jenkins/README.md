@@ -313,6 +313,8 @@ Ainda não foram realizados:
 
 ## 6. Uso diário
 
+A validação automática dos pull requests está descrita em [Validação de pull requests](validacao-pr.md).
+
 ### Ligar o ambiente
 
 Abra o Docker Desktop e aguarde a inicialização. Não é necessário repetir o desbloqueio, criar outro administrador ou obter novamente o segredo do agente enquanto os dados da instalação forem preservados.
@@ -361,7 +363,8 @@ Mudanças apenas no código ou nos Jenkinsfiles não exigem reconstruir o ambien
 | [infra/jenkins/Dockerfile](../../infra/jenkins/Dockerfile) | Constrói a imagem do controlador com plugins e arquivos de configuração. |
 | [infra/jenkins/plugins.txt](../../infra/jenkins/plugins.txt) | Define os plugins e suas versões. |
 | [infra/jenkins/jenkins.yaml](../../infra/jenkins/jenkins.yaml) | Aplica as configurações do Jenkins por JCasC e carrega os jobs. |
-| [infra/jenkins/jobs.groovy](../../infra/jenkins/jobs.groovy) | Cria os seis jobs manuais, com os parâmetros `BRANCH` e, nos cinco jobs chamados pela pipeline, `GIT_COMMIT_SHA`. |
+| [infra/jenkins/jobs.groovy](../../infra/jenkins/jobs.groovy) | Cria os seis jobs manuais, com os parâmetros `BRANCH` e, nos cinco jobs chamados pela pipeline, `GIT_COMMIT_SHA`, e o job `pr-validacao`, que valida os PRs sozinho. |
+| [Jenkinsfile.pr](../../Jenkinsfile.pr) | Define a validação de PRs: builds e testes da mescla do PR com a `main`, sem deploy. Veja a [validação de pull requests](validacao-pr.md). |
 | [Jenkinsfile](../../Jenkinsfile) | Define a pipeline completa: resolve o commit e encadeia os cinco jobs. |
 | [infra/jenkins/confirmar-revisao.groovy](../../infra/jenkins/confirmar-revisao.groovy) | Confere, em cada job, se o código obtido é a revisão pedida. |
 | [infra/jenkins/agent/Dockerfile](../../infra/jenkins/agent/Dockerfile) | Constrói o agente com Java, Git, Node.js, npm e a CLI do Docker com `buildx`. |
