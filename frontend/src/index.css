@@ -594,6 +594,36 @@ button:disabled {
   text-decoration: underline;
 }
 
+/* Logo clicável: botão sem caixa, com a mesma aparência do logo de antes */
+.logo-botao {
+  width: fit-content;
+  height: auto;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.logo-botao:hover {
+  background: none;
+}
+
+.logo-botao:focus-visible,
+.ap-link:focus-visible {
+  outline: 2px solid #45c79a;
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+
+/* "Voltar ao início" no topo dos formulários de Entrar e Criar conta */
+.voltar-inicio {
+  align-self: flex-start;
+  font-size: 14px;
+}
+
 .ap-conteudo {
   flex: 1;
   padding: 32px 40px;

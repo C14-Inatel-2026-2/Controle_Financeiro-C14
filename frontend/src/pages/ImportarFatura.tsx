@@ -4,6 +4,7 @@ import {
   type OpcoesFatura, type PreviaFatura,
 } from "../services/ServicoDeImportacao";
 import { SessaoExpiradaError } from "../services/ServicoDeAutenticacao";
+import { Logo } from "../components/Logo";
 import "./ImportarFatura.css";
 
 const defaultApi = new ServicoDeImportacao();
@@ -71,7 +72,7 @@ export function ImportarFatura({ aoVoltar, aoSessaoExpirada, api = defaultApi }:
   return <main className="invoice-page">
     <header className="invoice-header">
       <button type="button" onClick={aoVoltar} disabled={busy}>← Voltar</button>
-      <span>Controle Financeiro</span>
+      <Logo className="ap-logo" tamanho={26} aoClicar={aoVoltar} disabled={busy} />
     </header>
     <h1>Importar fatura</h1>
     <p>Envie sua fatura ou cole o conteúdo CSV. Confira os lançamentos antes de registrar as despesas.</p>

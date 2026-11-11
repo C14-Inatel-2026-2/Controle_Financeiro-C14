@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { Tela } from "../navegacao";
 import type { Usuario } from "../services/ServicoDeCadastro";
 import { iniciais, primeiroNome } from "../utils/nomeDoUsuario";
+import { Logo } from "./Logo";
 
 // Barra de cima das telas internas: logo, menu, usuário conectado e Sair.
 // Fica num componente só para as três telas não repetirem o mesmo código.
@@ -42,19 +43,7 @@ export function Topo({ ativo, aoNavegar, usuario, aoSair }: Props) {
 
   return (
     <header className="ap-topo">
-      <div className="ap-logo">
-        <svg width="26" height="26" viewBox="0 0 28 28" fill="none">
-          <rect width="28" height="28" rx="7" fill="#45c79a" />
-          <path
-            d="M7 18l5-5 4 3 5-6"
-            stroke="#0b1a14"
-            strokeWidth="2.2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-        Controle Financeiro
-      </div>
+      <Logo className="ap-logo" tamanho={26} aoClicar={() => aoNavegar("home")} />
 
       <nav className="ap-menu">
         {MENU.map((item) => (

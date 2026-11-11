@@ -99,6 +99,12 @@ preciso `credentials: "include"` e CORS com credenciais.
   (primeira letra do primeiro e do último nome: "Ana Teste" → "AT"), e a Home
   mostra "Olá, Ana.".
 
+- **Logo e Voltar ao início:** o logo "Controle Financeiro" é um botão
+  (`frontend/src/components/Logo.tsx`). Nas telas internas, inclusive Importar
+  fatura, leva ao Início sem encerrar a sessão. No Login e no Cadastro, leva à
+  página inicial pública, assim como o botão "← Voltar ao início" do formulário,
+  que continua visível no celular, onde o painel do logo fica oculto.
+
 A navegação continua guardada na memória do App, sem endereço por tela. Depois
 de F5 a pessoa volta à Home, não à tela em que estava, e o Voltar do navegador
 não troca de tela.
@@ -107,7 +113,7 @@ Testes: `frontend/src/services/ServicoDeAutenticacao.test.ts` (contrato das trê
 rotas), `frontend/src/pages/Login.test.tsx` (login válido, credenciais
 inválidas, falha de rede com nova tentativa e envio repetido) e
 `frontend/src/App.test.tsx` (sessão ao abrir, área interna bloqueada, Sair, troca
-de conta, falha no logout e sessão expirada).
+de conta, falha no logout, sessão expirada, logo e Voltar ao início).
 
 ## Fora do escopo desta entrega
 
