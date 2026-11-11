@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ServicoDeAutenticacao } from "../services/ServicoDeAutenticacao";
 import type { Usuario } from "../services/ServicoDeCadastro";
+import { Logo } from "../components/Logo";
 
 // A tela confere o preenchimento e só avança depois que a API confirma o login.
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -8,12 +9,13 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 type Props = {
   aoEntrar: (usuario: Usuario) => void;
   aoCriarConta: () => void;
+  aoVoltarInicio: () => void;
   // Mensagem vinda do App, por exemplo quando a sessão expirou.
   aviso?: string;
   servico?: Pick<ServicoDeAutenticacao, "entrar">;
 };
 
-export function Login({ aoEntrar, aoCriarConta, aviso = "", servico = new ServicoDeAutenticacao() }: Props) {
+export function Login({ aoEntrar, aoCriarConta, aoVoltarInicio, aviso = "", servico = new ServicoDeAutenticacao() }: Props) {
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [erros, setErros] = useState<{ email?: string; senha?: string }>({});
@@ -50,19 +52,7 @@ export function Login({ aoEntrar, aoCriarConta, aviso = "", servico = new Servic
   return (
     <div className="tela-dividida">
       <aside className="painel-marca">
-        <div className="logo">
-          <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-            <rect width="28" height="28" rx="7" fill="#45c79a" />
-            <path
-              d="M7 18l5-5 4 3 5-6"
-              stroke="#0b1a14"
-              strokeWidth="2.2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-          Controle Financeiro
-        </div>
+        <Logo className="logo" aoClicar={aoVoltarInicio} disabled={enviando} />
 
         <div className="chamada">
           <h2>Suas finanças, em ordem.</h2>
@@ -80,6 +70,10 @@ export function Login({ aoEntrar, aoCriarConta, aviso = "", servico = new Servic
           }}
           noValidate
         >
+          <button type="button" className="ap-link voltar-inicio" onClick={aoVoltarInicio} disabled={enviando}>
+            ← Voltar ao início
+          </button>
+
           <div className="titulo">
             <h1>Entrar</h1>
             <p>Acesse sua conta para ver suas finanças.</p>

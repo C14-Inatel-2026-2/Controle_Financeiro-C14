@@ -8,7 +8,7 @@ afterEach(cleanup);
 const usuario = { id: 1, nome: "Ana Teste", email: "ana@email.com" };
 
 function abrir(entrar: (email: string, senha: string) => Promise<Usuario>, aoEntrar = vi.fn()) {
-  render(<Login aoEntrar={aoEntrar} aoCriarConta={vi.fn()} servico={{ entrar }} />);
+  render(<Login aoEntrar={aoEntrar} aoCriarConta={vi.fn()} aoVoltarInicio={vi.fn()} servico={{ entrar }} />);
   return aoEntrar;
 }
 

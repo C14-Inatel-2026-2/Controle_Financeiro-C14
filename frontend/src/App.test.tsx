@@ -71,6 +71,41 @@ describe("App: sessão e acesso às telas internas", () => {
     expect(screen.queryByText(/Ana/)).toBeNull();
   });
 
+  it("com sessão, o logo leva ao Início sem encerrar a sessão", async () => {
+    const servico = servicoFalso(ana);
+    render(<App servico={servico} />);
+    await screen.findByText("Olá, Ana.");
+
+    fireEvent.click(screen.getByRole("button", { name: "Dashboard" }));
+    expect(screen.queryByText("Olá, Ana.")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Controle Financeiro" }));
+    expect(screen.getByText("Olá, Ana.")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Importar fatura" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Controle Financeiro" }));
+    expect(await screen.findByText("Olá, Ana.")).toBeTruthy();
+    expect(servico.sair).not.toHaveBeenCalled();
+  });
+
+  it("sem sessão, o logo e o Voltar ao início levam à página inicial pública", async () => {
+    render(<App servico={servicoFalso(null)} />);
+    const paginaInicial = () => screen.findByRole("button", { name: "Já tenho conta" });
+
+    fireEvent.click(await paginaInicial());
+    fireEvent.click(screen.getByRole("button", { name: "Controle Financeiro" }));
+    fireEvent.click(await paginaInicial());
+    fireEvent.click(screen.getByRole("button", { name: "← Voltar ao início" }));
+
+    await paginaInicial();
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Criar conta" })[0]);
+    expect(screen.getByRole("heading", { name: "Criar conta" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "← Voltar ao início" }));
+    fireEvent.click((await screen.findAllByRole("button", { name: "Criar conta" }))[0]);
+    fireEvent.click(screen.getByRole("button", { name: "Controle Financeiro" }));
+    expect(await paginaInicial()).toBeTruthy();
+  });
+
   it("se o logout falhar, continua conectado e mostra o erro", async () => {
     const servico = servicoFalso(ana);
     servico.sair.mockRejectedValue(new Error("Não foi possível sair. Tente novamente."));

@@ -67,6 +67,9 @@ export default function App({ servico = servicoPadrao }: Props) {
     setTela("login");
   }, []);
 
+  // Destino do logo nas telas públicas: Início com sessão, página inicial sem.
+  const irParaInicio = () => setTela(usuario ? "home" : "inicial");
+
   if (verificandoSessao) {
     return <p className="ap-nota" role="status">Carregando...</p>;
   }
@@ -94,13 +97,14 @@ export default function App({ servico = servicoPadrao }: Props) {
         <Login
           aoEntrar={entrar}
           aoCriarConta={() => setTela("cadastro")}
+          aoVoltarInicio={irParaInicio}
           aviso={aviso}
           servico={servico}
         />
       );
 
     case "cadastro":
-      return <Cadastro aoEntrar={() => setTela("login")} />;
+      return <Cadastro aoEntrar={() => setTela("login")} aoVoltarInicio={irParaInicio} />;
 
     default:
       return (

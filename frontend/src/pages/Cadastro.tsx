@@ -4,15 +4,17 @@ import {
   type ErrosCadastro,
 } from "../utils/ValidadorDeCadastro";
 import { ServicoDeCadastro } from "../services/ServicoDeCadastro";
+import { Logo } from "../components/Logo";
 
 const validador = new ValidadorDeCadastro();
 
 type Props = {
   aoEntrar: () => void;
+  aoVoltarInicio: () => void;
   servico?: Pick<ServicoDeCadastro, "cadastrar">;
 };
 
-export function Cadastro({ aoEntrar, servico = new ServicoDeCadastro() }: Props) {
+export function Cadastro({ aoEntrar, aoVoltarInicio, servico = new ServicoDeCadastro() }: Props) {
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
@@ -32,6 +34,11 @@ export function Cadastro({ aoEntrar, servico = new ServicoDeCadastro() }: Props)
     setEnviando(true);
     try {
       await servico.cadastrar({ nome, email, senha });
+      // Só limpa depois que a API confirma; em erro os dados ficam para corrigir.
+      setNome("");
+      setEmail("");
+      setSenha("");
+      setErros({});
       setSucesso(true);
     } catch (erro) {
       setErroApi(erro instanceof Error ? erro.message : "Não foi possível cadastrar. Tente novamente.");
@@ -43,19 +50,7 @@ export function Cadastro({ aoEntrar, servico = new ServicoDeCadastro() }: Props)
   return (
     <div className="tela-dividida">
       <aside className="painel-marca">
-        <div className="logo">
-          <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-            <rect width="28" height="28" rx="7" fill="#45c79a" />
-            <path
-              d="M7 18l5-5 4 3 5-6"
-              stroke="#0b1a14"
-              strokeWidth="2.2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-          Controle Financeiro
-        </div>
+        <Logo className="logo" aoClicar={aoVoltarInicio} disabled={enviando} />
 
         <div className="chamada">
           <h2>Suas finanças, em ordem.</h2>
@@ -73,6 +68,10 @@ export function Cadastro({ aoEntrar, servico = new ServicoDeCadastro() }: Props)
           }}
           noValidate
         >
+          <button type="button" className="ap-link voltar-inicio" onClick={aoVoltarInicio} disabled={enviando}>
+            ← Voltar ao início
+          </button>
+
           <div className="titulo">
             <h1>Criar conta</h1>
             <p>Leva menos de um minuto.</p>
