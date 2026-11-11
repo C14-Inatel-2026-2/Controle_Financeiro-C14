@@ -30,6 +30,10 @@ export function criarRouterMovimentacoes(repo: RepositorioMovimentacoes) {
       const id = repo.inserir(req.usuario!.id, req.body);
       res.status(201).json({ id });
     } catch (erro) {
+      if (erro instanceof ValidationError && erro.campo === "descricao") {
+        res.status(400).json({ erro: { codigo: "VALIDATION_ERROR", mensagem: erro.message, campo: erro.campo } });
+        return;
+      }
       if (!(erro instanceof ValidationError) || erro.campo !== "categoriaId") throw erro;
       res.status(404).json({ erro: { codigo: "CATEGORY_NOT_FOUND", mensagem: erro.message } });
     }

@@ -9,6 +9,7 @@ import {
 import { normalizarEmail } from "./normalizarEmail.js";
 
 const derivarChave = promisify(scrypt);
+const LIMITE_NOME_USUARIO = 100;
 
 export async function createUserService(
   dados: DadosCadastro,
@@ -16,8 +17,11 @@ export async function createUserService(
 ): Promise<Usuario> {
   const nome = dados.nome.trim();
   if (nome === "") {
-  throw new ValidationError("Informe seu nome.", "nome");
-}
+    throw new ValidationError("Informe seu nome.", "nome");
+  }
+  if (nome.length > LIMITE_NOME_USUARIO) {
+    throw new ValidationError(`O nome deve ter no máximo ${LIMITE_NOME_USUARIO} caracteres.`, "nome");
+  }
 
   const email = normalizarEmail(dados.email);
   
