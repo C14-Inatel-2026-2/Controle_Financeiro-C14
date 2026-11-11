@@ -207,9 +207,11 @@ multibranchPipelineJob('pr-validacao') {
 
                     traits {
                         // Só PRs de branches deste repositório; branches e forks não são construídos.
-                        // strategyId 1 = mesclar o PR com a ponta atual da branch de destino.
+                        // strategyId 2 = obter o commit do próprio PR. A mescla com a main é feita
+                        // no Jenkinsfile.pr: no modo 1 o plugin lê o Jenkinsfile.pr da ref de mescla
+                        // do GitHub, que não existe quando há conflito, e o PR ficava sem status.
                         gitHubPullRequestDiscovery {
-                            strategyId(1)
+                            strategyId(2)
                         }
                     }
                 }
