@@ -185,3 +185,57 @@ pipelineJob('pipeline-completa') {
         }
     }
 }
+
+// Validação de PRs para a main. O Jenkins consulta o GitHub periodicamente:
+// não depende de webhook nem expõe este Jenkins local à internet.
+multibranchPipelineJob('pr-validacao') {
+    description('Valida PRs abertos para a main: mescla com a main no agente, roda builds e testes e publica o status no commit do PR. Não publica imagem nem faz deploy.')
+
+    branchSources {
+        branchSource {
+            source {
+                github {
+                    // ID fixo: trocá-lo faria o Jenkins tratar a origem como nova.
+                    id('controle-financeiro-prs')
+                    repoOwner('C14-Inatel-2026-2')
+                    repository('Controle_Financeiro-C14')
+                    repositoryUrl('https://github.com/C14-Inatel-2026-2/Controle_Financeiro-C14')
+                    configuredByUrl(true)
+
+                    // Token do GitHub cadastrado só no Jenkins (veja docs/jenkins/validacao-pr.md).
+                    credentialsId('github-pr-status')
+
+                    traits {
+                        // Só PRs de branches deste repositório; branches e forks não são construídos.
+                        // strategyId 2 = obter o commit do próprio PR. A mescla com a main é feita
+                        // no Jenkinsfile.pr: no modo 1 o plugin lê o Jenkinsfile.pr da ref de mescla
+                        // do GitHub, que não existe quando há conflito, e o PR ficava sem status.
+                        gitHubPullRequestDiscovery {
+                            strategyId(2)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    factory {
+        workflowBranchProjectFactory {
+            scriptPath('Jenkinsfile.pr')
+        }
+    }
+
+    // Consulta o GitHub a cada 2 minutos.
+    triggers {
+        periodicFolderTrigger {
+            interval('2m')
+        }
+    }
+
+    // Remove os jobs de PRs fechados na consulta seguinte.
+    orphanedItemStrategy {
+        discardOldItems {
+            numToKeep(0)
+        }
+    }
+}

@@ -82,3 +82,12 @@ workflow-multibranch:842.v3a_b_59b_57b_e6e
 workflow-scm-step:487.v41313a_96b_65d
 workflow-step-api:724.v538c2362b_dfb_
 workflow-support:1015.v785e5a_b_b_8b_22
+# Validação de PRs (job pr-validacao): descobre os PRs, mescla com a main e publica o status no GitHub.
+github-branch-source:1986.v801e40614d00
+# Dependências do github-branch-source.
+github:1.47.0
+github-api:1.330-492.v3941a_032db_2a_
+jjwt-api:0.13.0-141.vd58b_a_9592b_6c
+json-path-api:3.0.0-218.vcd4dd1355de2
+okhttp-api:5.5.0-242.v1482d48d3ea_3
+token-macro:477.vd4f0dc3cb_cf1
