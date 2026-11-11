@@ -40,6 +40,9 @@ sem o código-fonte.
    - Depois do `docker push`, o digest é lido do registro com
      `docker buildx imagetools inspect` e gravado em `imagem-publicada.txt`
      (artefato do build), também mostrado na descrição da execução.
+   - Chamado pela pipeline completa, o job falha se terminar sem
+     `imagem-publicada.txt` com a referência e o digest. A pipeline completa
+     confere de novo pela descrição do `backend-deploy` e falha se ela não os traz.
 6. Ao final, com sucesso ou falha, guarda os logs do contêiner em
    `verificacao.log` e remove o contêiner e o volume temporários.
 

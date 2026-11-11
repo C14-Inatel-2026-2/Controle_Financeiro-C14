@@ -42,6 +42,14 @@ pipeline {
                     env.COMMIT = sh(script: 'git rev-parse HEAD', returnStdout: true).trim()
                     env.REFERENCIA = "${env.IMAGEM}:${env.COMMIT}"
                     currentBuild.description = env.REFERENCIA
+
+                    // O step build registra BuildUpstreamCause, subclasse de UpstreamCause,
+                    // e getBuildCauses('hudson.model.Cause$UpstreamCause') não a encontrava.
+                    // A lista sem filtro traz o projeto de origem em upstreamProject.
+                    def causas = currentBuild.getBuildCauses()
+                    echo "Causas desta execução: ${causas.collect { it._class }}"
+                    env.CHAMADO_PELA_PIPELINE = causas.any { it.upstreamProject == 'pipeline-completa' } ? 'true' : 'false'
+                    echo "Chamado pela pipeline-completa: ${env.CHAMADO_PELA_PIPELINE}"
                 }
             }
         }
@@ -99,7 +107,7 @@ pipeline {
             // Só publica quando chamado pela pipeline completa, depois dos builds e testes do mesmo SHA.
             // Uma execução manual deste job constrói e verifica a imagem, mas não a publica.
             when {
-                expression { currentBuild.getBuildCauses('hudson.model.Cause$UpstreamCause') ? true : false }
+                environment name: 'CHAMADO_PELA_PIPELINE', value: 'true'
             }
             steps {
                 script {
@@ -140,6 +148,29 @@ pipeline {
 
                 script {
                     currentBuild.description = readFile('imagem-publicada.txt').trim().replace('\n', ' | ')
+                }
+            }
+        }
+
+        stage('Confirmar publicação') {
+            // Sem when: chamado pela pipeline, o job só termina verde com a prova da publicação.
+            steps {
+                script {
+                    if (env.CHAMADO_PELA_PIPELINE != 'true') {
+                        echo 'Execução manual: imagem construída e verificada, sem publicação.'
+                        return
+                    }
+                    if (!fileExists('imagem-publicada.txt')) {
+                        error 'Chamado pela pipeline-completa, mas imagem-publicada.txt não foi gerado: a imagem não foi publicada.'
+                    }
+                    def linhas = readFile('imagem-publicada.txt').readLines()
+                    def prefixoDigest = "digest=${env.IMAGEM}@sha256:".toString()
+                    def temReferencia = linhas.contains("referencia=${env.REFERENCIA}".toString())
+                    def temDigest = linhas.any { it.startsWith(prefixoDigest) && it.substring(prefixoDigest.length()) ==~ /[0-9a-f]{64}/ }
+                    if (!temReferencia || !temDigest) {
+                        error "imagem-publicada.txt não comprova a publicação de ${env.REFERENCIA}:\n${linhas.join('\n')}"
+                    }
+                    echo "Publicação comprovada: ${linhas.join(' | ')}"
                 }
             }
         }
