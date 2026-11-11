@@ -1,9 +1,10 @@
 // Validação de pull requests para a main, usada pelo job pr-validacao.
 //
 // O job (infra/jenkins/jobs.groovy) consulta o GitHub a cada poucos minutos e,
-// para cada PR aberto a partir deste repositório, mescla a branch do PR com a
-// ponta atual da main só no workspace do agente. Nada é enviado ao GitHub além
-// do status do commit. Conflito com a main faz o checkout falhar e reprova o PR.
+// para cada PR aberto a partir deste repositório, obtém o commit do PR e o
+// mescla com a ponta atual da main só no workspace do agente. Nada é enviado ao
+// GitHub além do status do commit. Conflito com a main faz a etapa de mescla
+// falhar e reprova o PR.
 //
 // As etapas repetem os comandos dos jobs da pipeline completa (frontend-build,
 // backend-build, backend-unit-igor e backend-integration-coverage), sem a
@@ -23,11 +24,22 @@ pipeline {
             steps {
                 deleteDir()
 
-                // Busca a branch do PR e a main e faz a mesclagem local.
+                // Commit atual do PR.
                 checkout scm
 
-                // Registra no console exatamente o que foi testado.
-                sh 'git log -1 --format="Testando %H (pais: %P)"'
+                // Mescla local com a branch de destino (CHANGE_TARGET, a main). O GitHub
+                // não gera a ref de mescla de PRs com conflito, por isso ela é feita aqui.
+                sh '''
+                    git fetch --no-tags origin "+refs/heads/${CHANGE_TARGET}:refs/remotes/origin/${CHANGE_TARGET}"
+                    if ! git -c user.name=Jenkins -c user.email=jenkins@localhost merge --no-ff --no-edit "origin/${CHANGE_TARGET}"; then
+                        git merge --abort || true
+                        echo "O PR tem conflito com a ${CHANGE_TARGET}. Atualize a branch do PR e resolva o conflito."
+                        exit 1
+                    fi
+
+                    # Registra no console exatamente o que foi testado.
+                    git log -1 --format="Testando %H (pais: %P)"
+                '''
             }
         }
 
