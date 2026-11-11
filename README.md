@@ -22,34 +22,77 @@ O projeto é composto por:
 
 A pasta `ui/` contém telas demonstrativas (protótipos visuais). Elas representam a interface pretendida e não correspondem a funcionalidades implementadas.
 
+## Como usar
+
+### Usar ou demonstrar a versão publicada
+
+Basta ter Docker compatível com `linux/amd64`. Não é preciso clonar o projeto nem instalar Jenkins, Node ou npm. Siga o [guia rápido da imagem](docs/ci-cd/deploy.md#guia-rápido-executar-a-imagem-publicada), que usa a tag já publicada `5060557…`.
+
+- O Docker Hub mantém a imagem disponível mesmo com o computador do Caio desligado.
+- A aplicação roda no computador que inicia o contêiner. Cada instalação tem o próprio banco, guardado no volume `controle-financeiro-dados`.
+- O Docker Hub só distribui a imagem. Um endereço público do site em execução exigiria uma hospedagem adicional, que o projeto não tem.
+- Antes de apresentar, leia as [limitações para quem for demonstrar](docs/ci-cd/deploy.md#limitações-para-quem-for-demonstrar). A principal é que a tela de login ainda não chama a API.
+
+### Desenvolver o projeto
+
+É preciso ter Git e Node.js 24 (o `node:sqlite` exige pelo menos o 22.13). Em dois terminais PowerShell, a partir da raiz do repositório:
+
+```powershell
+# Terminal 1: API em http://localhost:3000, banco em backend\data\financeiro.sqlite
+Set-Location .\backend
+npm ci
+npm run dev
+```
+
+```powershell
+# Terminal 2: frontend em http://localhost:5173; o Vite repassa /api para a porta 3000
+Set-Location .\frontend
+npm ci
+npm run dev
+```
+
+Antes de abrir um PR, rode `npm run test:unit`, `npm run test:integration`, `npm run test:coverage` e `npm run build` em `backend`, e `npm test`, `npm run lint` e `npm run build` em `frontend`. O arquivo do banco não é versionado. Guias por assunto: [autenticação](docs/autenticacao.md), [categorias e movimentações](docs/categorias.md), [metas](docs/us05-metas-financeiras.md) e [importação de faturas](backend/src/features/invoice-import/README.md).
+
+### Executar o Jenkins e publicar novas imagens
+
+O [guia do Jenkins](docs/jenkins/README.md) cobre a primeira instalação e a execução da `pipeline-completa`. O [guia do deploy](docs/ci-cd/deploy.md) explica o que é verificado antes da publicação.
+
+- O Jenkins atual roda no PC do Caio e precisa desse computador ligado para executar novas pipelines. O grupo pode centralizar as publicações nessa instalação ou preparar outra com os arquivos do repositório e credenciais autorizadas ([quem pode executar e publicar](docs/jenkins/README.md#quem-pode-executar-e-publicar)).
+- Atualizar os arquivos no GitHub não transfere usuários, segredos ou histórico de um Jenkins para outro. Cada instalação tem o próprio administrador e o próprio segredo de agente.
+- Toda pipeline aprovada publica a tag do SHA. `latest` só é atualizada por uma pipeline na `main`, quando o SHA ainda é a ponta dela.
+
 ## Requisitos funcionais
 
-Classificação histórica da documentação da `main`; a situação atual da importação nesta contribuição está na seção acima. As linhas RF01, RF02 e RF04 foram atualizadas com as entregas de cadastro, login e categorias; as demais não foram reavaliadas:
+Classificação revisada em 10/11/2026 sobre a `Branch-Caio` com a `main` integrada, incluindo as movimentações do PR #34, ainda no PR #35. A coluna "O que existe hoje" separa o que está ligado à interface do que só existe na API:
 
 - **Implementado**: funciona de ponta a ponta para o usuário (interface, API e persistência, quando aplicáveis) e é coberto por testes.
-- **Parcialmente implementado**: existem regras de negócio, persistência ou telas, mas o fluxo completo ainda não está disponível ao usuário.
-- **Planejado**: ainda não há código correspondente na `main`.
+- **Parcialmente implementado**: existem regras de negócio, API, persistência ou telas, mas o fluxo completo ainda não está disponível ao usuário pela interface.
+- **Planejado**: ainda não há código correspondente.
 
-Código de pull requests abertos não é considerado.
+As evidências de execução estão em [Requisitos não funcionais](#requisitos-não-funcionais).
 
 | ID | Requisito | Situação | O que existe hoje | O que falta |
 | --- | --- | --- | --- | --- |
-| RF01 | Cadastro de usuários: a pessoa informa nome, e-mail e senha para criar uma conta; e-mails duplicados são rejeitados. | Implementado | Serviço de cadastro com validação de nome, formato de e-mail, senha com no mínimo 8 caracteres, normalização do e-mail e rejeição de duplicidade (`backend/src/services/createUserService.ts`); `POST /users` montado em `createAppComBanco` e gravando no SQLite (`backend/src/repositories/sqliteUserRepository.ts`), com respostas 201, 400 ou 409; tela de cadastro (`frontend/src/pages/Cadastro.tsx`) que valida localmente, chama a API pelo `ServicoDeCadastro`, mostra sucesso só após a resposta, trata e-mail duplicado e falha geral e bloqueia envio repetido. Testes: `backend/tests/integration/cadastro-sqlite.test.ts` e `frontend/src/pages/Cadastro.test.tsx`. | Unificar ou remover o módulo alternativo `backend/src/features/users/` (veja RNF01). |
-| RF02 | Login e autenticação: a pessoa entra com e-mail e senha e passa a acessar somente os próprios dados. | Parcialmente implementado | `POST /auth/login`, `POST /auth/logout` e `GET /auth/me` com sessão no SQLite e cookie `HttpOnly`; middleware que expõe `req.usuario.id`; confirmação de faturas ligada à sessão ([docs/autenticacao.md](docs/autenticacao.md)). | Ligar a tela `Login.tsx` à API e proteger as rotas de movimentações. |
-| RF03 | Registro e consulta de receitas e despesas: a pessoa cadastra movimentações com descrição, tipo, valor e data e consulta as que registrou. | Parcialmente implementado | Tabela `movimentacoes` e repositório com inserção e listagem por usuário (`backend/src/repositories/movimentacoes.ts`). | Rotas HTTP, ligação com o usuário autenticado e telas de registro e consulta. |
-| RF04 | Organização de gastos por categoria: a pessoa cria categorias e associa despesas a elas. | Parcialmente implementado | Categorias por usuário no SQLite (migration 5), `GET` e `POST /categories` com o usuário da sessão, tela de categorias ligada à API e `categoriaId` opcional validado no repositório de movimentações ([docs/categorias.md](docs/categorias.md)). | Rota HTTP de movimentações enviando `categoriaId` e totais por categoria. |
-| RF05 | Cadastro de cartões de crédito: a pessoa registra os cartões que utiliza. | Planejado | Não há código de cartões na `main`. | Modelo, persistência, rotas e telas. |
-| RF06 | Importação de faturas: a pessoa envia a fatura do cartão e revisa os lançamentos extraídos antes de salvá-los. | Parcialmente implementado | Pré-visualização de faturas em PDF do Itaú (layout v1) e de CSV manual no template `data;descricao;valor`, com valores convertidos para centavos (`backend/src/features/invoice-import/`). | Upload pela API, tela de importação, gravação dos lançamentos e associação com o cartão (RF05). |
-| RF07 | Consulta de saldo e resumo financeiro: a pessoa vê o saldo (receitas menos despesas) e um resumo dos gastos. | Parcialmente implementado | Cálculo do saldo em centavos a partir das movimentações (`backend/src/services/calcularSaldo.ts`). | Rota e tela de saldo, resumo por categoria e por período (`ui/Dashboard.png` é apenas demonstrativa). |
-| RF08 | Metas financeiras: a pessoa define metas com nome e valor-alvo e acompanha o progresso. | Parcialmente implementado | Regra e serviço de criação de meta com nome obrigatório, valor-alvo positivo em centavos e sem duplicidade (`backend/src/features/goals/`). | Persistência, associação ao usuário, acompanhamento do progresso, rotas e telas. |
+| RF01 | Cadastro de usuários: a pessoa informa nome, e-mail e senha para criar uma conta; e-mails duplicados são rejeitados. | Implementado | Serviço de cadastro com validação de nome, formato de e-mail, senha com no mínimo 8 caracteres, normalização do e-mail e rejeição de duplicidade (`backend/src/services/createUserService.ts`); `POST /users` montado em `createAppComBanco` e gravando no SQLite (`backend/src/repositories/sqliteUserRepository.ts`), com respostas 201, 400 ou 409; tela de cadastro (`frontend/src/pages/Cadastro.tsx`) que valida localmente, chama a API pelo `ServicoDeCadastro`, mostra sucesso só após a resposta, trata e-mail duplicado e falha geral e bloqueia envio repetido. Testes: `backend/tests/integration/cadastro-sqlite.test.ts` e `frontend/src/pages/Cadastro.test.tsx`. Cadastro também verificado dentro da imagem Docker. | Unificar ou remover o módulo alternativo `backend/src/features/users/` (veja RNF01). |
+| RF02 | Login e autenticação: a pessoa entra com e-mail e senha e passa a acessar somente os próprios dados. | Parcialmente implementado | **API:** `POST /auth/login`, `POST /auth/logout` e `GET /auth/me` com sessão no SQLite e cookie `HttpOnly`; `req.usuario.id` protege categorias, movimentações e a confirmação de faturas ([docs/autenticacao.md](docs/autenticacao.md)). Login, cookie e sessão após a recriação do contêiner são verificados dentro da imagem. **Interface:** `Login.tsx` só valida o preenchimento e não cria sessão. | Ligar `Login.tsx` à API, consultar `/auth/me` ao abrir o app e oferecer "Sair" ([pendência](docs/autenticacao.md#pendente-login-pela-tela)). |
+| RF03 | Registro e consulta de receitas e despesas: a pessoa cadastra movimentações com descrição, tipo, valor e data e consulta as que registrou. | Parcialmente implementado | **API:** `GET` e `POST /movimentacoes` (também em `/api`), com sessão, validação dos campos e listagem só do usuário da sessão (PR #34, [contrato](docs/categorias.md#movimentações-com-categoria)). Testes HTTP nos dois caminhos e verificação local da imagem. **Interface:** não há tela de movimentações; Home e Dashboard mostram dados de exemplo. | Telas de registro e consulta. Execução no Jenkins do commit integrado. |
+| RF04 | Organização de gastos por categoria: a pessoa cria categorias e associa despesas a elas. | Parcialmente implementado | **API:** categorias por usuário no SQLite (migration 5), `GET` e `POST /categories` com a sessão e `categoriaId` opcional nas movimentações, com recusa de categoria inexistente ou de outra conta ([docs/categorias.md](docs/categorias.md)). **Interface:** tela de categorias ligada à API, que só funciona com sessão, hoje criada apenas pelo [contorno de demonstração](docs/ci-cd/deploy.md#limitações-para-quem-for-demonstrar). | Login pela tela, escolha de categoria numa tela de movimentações e totais por categoria. |
+| RF05 | Cadastro de cartões de crédito: a pessoa registra os cartões que utiliza. | Planejado | Não há código de cartões. | Modelo, persistência, rotas e telas. |
+| RF06 | Importação de faturas: a pessoa envia a fatura do cartão e revisa os lançamentos extraídos antes de salvá-los. | Parcialmente implementado | **API e interface:** tela de importação com prévia de PDF do Itaú (layout v1) e de CSV no template `data;descricao;valor`, pela rota pública `/invoice-imports/preview`. A confirmação grava os lançamentos como movimentações do usuário da sessão e evita importar a mesma fatura duas vezes ([guia da importação](backend/src/features/invoice-import/README.md)). | Confirmar pela interface depende do login pela tela; associação com o cartão (RF05). |
+| RF07 | Consulta de saldo e resumo financeiro: a pessoa vê o saldo (receitas menos despesas) e um resumo dos gastos. | Parcialmente implementado | Cálculo do saldo em centavos a partir das movimentações (`backend/src/services/calcularSaldo.ts`). O Dashboard tem layout, mas mostra valores fixos de exemplo. | Rota de saldo e ligar o Dashboard aos dados reais, com resumo por categoria e por período. |
+| RF08 | Metas financeiras: a pessoa define metas com nome e valor-alvo e acompanha o progresso. | Parcialmente implementado | **API:** `POST` e `GET /goals`, com regras de nome e valor-alvo e persistência na tabela `metas` (migration 2) ([US05](docs/us05-metas-financeiras.md)). | Associação ao usuário (hoje as metas são compartilhadas por todas as contas), progresso e tela. |
 
 ## Requisitos não funcionais
 
 Cada requisito separa três situações:
 
 - **Pretendido**: a condição que o sistema deve atender.
-- **Evidência por inspeção**: o que o código e os testes existentes na `main` implementam, conforme leitura dos arquivos. Esta atualização da documentação não executou os testes.
-- **Comprovado por execução**: o registro histórico da [pipeline completa na `main` em 17/10/2026](docs/jenkins/evidencias/pipeline-completa-main-2026-10-17.txt) corresponde ao commit `dbcc705`, com cinco jobs em `SUCCESS`. Esse resultado não comprova versões posteriores. Na verificação local da importação em 08/11/2026 passaram 119 testes unitários do backend, 23 do frontend e os 33 testes de integração existentes, além dos builds e do lint. A confirmação com autenticação real e uma nova execução do Jenkins permanecem pendentes.
+- **Evidência por inspeção**: o que o código e os testes implementam, conforme leitura dos arquivos.
+- **Comprovado por execução**: cada registro vale só para o commit indicado.
+  - **Jenkins, 17/10/2026:** [pipeline completa na `main`](docs/jenkins/evidencias/pipeline-completa-main-2026-10-17.txt), commit `dbcc705`, cinco jobs em `SUCCESS`, ainda com o deploy antigo, sem imagem Docker.
+  - **Jenkins do PC do Caio, commit `5060557` (`Branch-Caio`, antes das movimentações):** `pipeline-completa` #3 e `backend-deploy` #3 em `SUCCESS`, com a imagem publicada e conferida por digest ([registro](docs/ci-cd/deploy.md#evidências-registradas)).
+  - **Verificação local, 10/11/2026, merge da `main` na `Branch-Caio` antes do commit:** backend com 164 testes unitários, 81 de integração e 245 na cobertura (89,29% das instruções); frontend com 40 testes; lint e builds sem erro. A imagem construída localmente passou na verificação do deploy, inclusive movimentações e persistência no volume.
+  - **Pendente:** nova `pipeline-completa` na `Branch-Caio` após o commit do merge e, depois do merge do PR, na `main`.
 
 Não há metas de desempenho, de cobertura mínima ou de disponibilidade definidas no projeto.
 
@@ -66,7 +109,9 @@ Não há metas de desempenho, de cobertura mínima ou de disponibilidade definid
 - **Pretendido**: cada usuário acessa somente os próprios dados, e o identificador do usuário vem da autenticação, nunca do corpo da requisição.
 - **Evidência por inspeção**: o repositório de movimentações filtra todas as consultas por `usuario_id`, e a chave estrangeira impede movimentações de usuário inexistente. O teste `backend/tests/integration/database.test.ts` verifica que as movimentações de um usuário não aparecem para outro.
 - **Comprovado por execução**: esse teste faz parte do job `backend-integration-coverage`, concluído com sucesso na execução de 17/10/2026.
-- **Pendente**: as rotas que já usam a sessão (`/auth/me`, `/categories` e a confirmação de faturas) tiram o usuário de `req.usuario.id`, e os testes de integração verificam o isolamento entre duas contas, ainda sem execução registrada no Jenkins. As rotas de movimentações ainda não existem, e as metas ainda não são associadas a usuários.
+- **Evidência por inspeção (rotas com sessão)**: `/auth/me`, `/categories`, `/movimentacoes` e a confirmação de faturas tiram o usuário de `req.usuario.id` e ignoram `usuarioId` no corpo. Os testes de integração verificam o isolamento entre duas contas, inclusive a recusa de categoria de outra conta numa movimentação.
+- **Comprovado por execução**: categorias e sessão no Jenkins do commit `5060557`; movimentações só na verificação local de 10/11/2026.
+- **Pendente**: execução no Jenkins com as movimentações. As metas ainda não são associadas a usuários.
 
 ### RNF03 - Precisão monetária
 
@@ -78,18 +123,18 @@ Não há metas de desempenho, de cobertura mínima ou de disponibilidade definid
 ### RNF04 - Persistência
 
 - **Pretendido**: os dados financeiros permanecem salvos entre execuções e o esquema do banco evolui por migrations sem perda de dados.
-- **Evidência por inspeção**: o SQLite é aberto com chaves estrangeiras habilitadas e a migration 1 é aplicada uma única vez. O teste de integração verifica que reaplicar a migration preserva os dados e que e-mails duplicados são recusados. O arquivo do banco não é versionado.
+- **Evidência por inspeção**: o SQLite é aberto com chaves estrangeiras habilitadas e as migrations 1 a 5 são aplicadas uma única vez cada: usuários e movimentações, metas, importações de faturas, sessões e categorias. Os testes de integração verificam que reaplicar as migrations preserva os dados. O arquivo do banco não é versionado. Na imagem Docker, o banco fica em `/data/financeiro.sqlite`, num volume.
 - **Comprovado por execução (testes automatizados)**: esse teste faz parte do job `backend-integration-coverage`, concluído com sucesso na execução de 17/10/2026. Ele usa banco em memória (`:memory:`) e, portanto, não verifica a gravação em arquivo.
 - **Comprovado por execução (validação manual)**: em 17/10/2026, na branch `Branch-Donatto`, o grupo criou um registro fictício na tabela `usuarios` do arquivo SQLite publicado pelo deploy, executou novamente a pipeline completa com deploy, consultou o registro, que manteve o mesmo id e o mesmo nome, e depois o removeu. O procedimento está documentado em [registro do deploy anterior](docs/ci-cd/deploy.md#versão-anterior-deploy-em-pasta-do-agente). Isso comprova que o arquivo do banco é preservado entre deploys.
-- **Não comprovado**: persistência pela API no ambiente de deploy (a validação manual escreveu o registro diretamente no arquivo; a gravação pelo `POST /users` em arquivo SQLite, reaberto em seguida, é verificada apenas pelo teste `backend/tests/integration/cadastro-sqlite.test.ts`), preservação após reinício do contêiner e funcionamento em uma instalação do zero.
-- **Pendente**: somente usuários e movimentações têm tabela; categorias, metas, cartões e faturas importadas ainda não são persistidos.
+- **Comprovado por execução (imagem Docker)**: o `backend-deploy` #3 (commit `5060557`) recriou o contêiner com o mesmo volume e confirmou que usuário, sessão e categorias continuavam salvos, tudo gravado pela API. Na verificação local de 10/11/2026, o mesmo teste também preservou as movimentações.
+- **Pendente**: comprovar as movimentações no Jenkins. Cartões ainda não têm tabela.
 
 ### RNF05 - Validação por testes e Jenkins
 
 - **Pretendido**: antes de cada merge na `main`, o grupo executa a pipeline completa sobre a branch do pull request e confere que todos os checks terminaram com sucesso.
-- **Evidência por inspeção**: o backend possui testes unitários e de integração com Vitest, e o frontend possui testes do validador, dos serviços e das telas de cadastro, categorias e importação. A pipeline completa (`Jenkinsfile`) executa os builds do frontend e do backend, os testes unitários, os testes de integração com cobertura e o deploy local, repassando o mesmo SHA aos cinco jobs. Os jobs não têm gatilho automático configurado: a pipeline é disparada manualmente no Jenkins, informando a branch.
-- **Comprovado por execução**: a execução manual na `main` em 17/10/2026 terminou com sucesso, conforme o [registro da pipeline](docs/jenkins/evidencias/pipeline-completa-main-2026-10-17.txt).
-- **Pendente**: não há evidência de que o resultado do Jenkins bloqueie merges automaticamente; a conferência dos checks antes do merge é responsabilidade do grupo. Os testes do frontend passaram a fazer parte do `frontend-build`, ainda sem execução registrada no Jenkins, e não há limite mínimo de cobertura configurado.
+- **Evidência por inspeção**: o backend possui testes unitários e de integração com Vitest, e o frontend possui testes do validador, dos serviços e das telas de cadastro, categorias e importação. A pipeline completa (`Jenkinsfile`) executa os builds do frontend (com `npm test`) e do backend, os testes unitários, os testes de integração com cobertura e o deploy, que constrói, verifica e publica a imagem, repassando o mesmo SHA aos cinco jobs. Os jobs não têm gatilho automático configurado: a pipeline é disparada manualmente no Jenkins, informando a branch.
+- **Comprovado por execução**: a execução na `main` em 17/10/2026 ([registro](docs/jenkins/evidencias/pipeline-completa-main-2026-10-17.txt)) e a `pipeline-completa` #3 do commit `5060557`, cujo `frontend-build` já executa os testes do frontend.
+- **Pendente**: não há evidência de que o resultado do Jenkins bloqueie merges automaticamente; a conferência dos checks antes do merge é responsabilidade do grupo. Não há limite mínimo de cobertura configurado.
 
 ## Gestão ágil
 
@@ -118,7 +163,7 @@ Guias dos jobs do backend:
 
 - [Testes unitários](docs/jenkins/unitarios.md)
 - [Testes de integração e cobertura](docs/jenkins/backend-integracao-cobertura.md)
-- [Publicação da imagem no Docker Hub](docs/ci-cd/deploy.md), com os comandos para baixar e executar a imagem
+- [Publicação da imagem no Docker Hub](docs/ci-cd/deploy.md), com o [guia rápido para baixar e executar a imagem](docs/ci-cd/deploy.md#guia-rápido-executar-a-imagem-publicada)
 
 ## US05 — Metas financeiras
 

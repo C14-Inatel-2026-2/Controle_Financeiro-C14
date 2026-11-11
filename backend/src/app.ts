@@ -12,7 +12,10 @@ import { createAuthRouter, type Autenticacao } from "./routes/authRoutes.js";
 import { carregarSessao } from "./middlewares/sessao.js";
 import { createCategoryRouter, type CategoriasDoUsuario } from "./routes/categoryRoutes.js";
 
+import { criarRouterMovimentacoes, type RepositorioMovimentacoes } from "./routes/movimentacoes.js";
+
 interface AppDependencies {
+  movimentacoes?: RepositorioMovimentacoes;
   goalCatalog?: GoalCatalog;
   criarUsuario?: CriarUsuario;
   invoiceWorkflow?: InvoiceImportWorkflow;
@@ -23,7 +26,8 @@ interface AppDependencies {
 }
 
 export function createApp({
-  goalCatalog, criarUsuario, invoiceWorkflow, invoiceIdentity, autenticacao, categoriasDoUsuario, pastaFrontend,
+  goalCatalog, criarUsuario, invoiceWorkflow, invoiceIdentity, autenticacao, categoriasDoUsuario, movimentacoes,
+  pastaFrontend,
 }: AppDependencies = {}) {
   const api = express.Router();
 
@@ -37,6 +41,11 @@ export function createApp({
   ));
   api.use(express.json());
   api.use(router);
+
+  // Depois de carregarSessao e express.json: as rotas exigem a sessão e leem o corpo JSON.
+  if (movimentacoes) {
+    api.use("/movimentacoes", criarRouterMovimentacoes(movimentacoes));
+  }
 
   if (autenticacao) {
     api.use("/auth", createAuthRouter(autenticacao));

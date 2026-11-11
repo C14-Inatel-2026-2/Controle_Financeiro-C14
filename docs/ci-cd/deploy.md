@@ -11,8 +11,23 @@ essa imagem num contêiner temporário e a publica no Docker Hub:
 - Chamado pelo estágio Deploy da [pipeline completa](../jenkins/README.md#5-executar-a-pipeline-completa),
   somente depois de os builds e os testes do mesmo SHA passarem
 
-Qualquer pessoa com Docker consegue baixar e executar a imagem, sem o Jenkins e
-sem o código-fonte.
+Qualquer pessoa com Docker compatível com `linux/amd64` consegue baixar e
+executar a imagem, sem clonar o projeto e sem instalar Jenkins, Node ou npm.
+Veja o [guia rápido](#guia-rápido-executar-a-imagem-publicada).
+
+## Onde cada coisa roda
+
+- **Docker Hub** guarda e distribui a imagem. Ela continua disponível com o
+  computador do Caio desligado.
+- **A aplicação** roda no computador de quem inicia o contêiner. Cada
+  instalação tem o próprio banco, no próprio volume: dados de um computador não
+  aparecem em outro.
+- **O Jenkins** atual roda no PC do Caio e só executa pipelines com esse
+  computador ligado. Para publicar sem ele, veja
+  [Quem pode executar e publicar](../jenkins/README.md#quem-pode-executar-e-publicar).
+- **Endereço público do site:** o Docker Hub não hospeda a aplicação em
+  execução. Para alguém abrir o sistema pela internet, sem rodar o contêiner,
+  é preciso uma hospedagem adicional, que o projeto ainda não tem.
 
 ## O que o job faz, em ordem
 
@@ -27,12 +42,17 @@ sem o código-fonte.
    - sobe um contêiner com um volume temporário e `COOKIE_SECURE=false` e executa
      `infra/jenkins/verificar-imagem.js` dentro dele: `/health`, `/api/health`,
      frontend em `/`, 404 em JSON para `/api/nao-existe`, cadastro, login,
-     cookie `HttpOnly` sem `Secure` e categorias;
+     cookie `HttpOnly` sem `Secure`, categorias e movimentações com e sem
+     categoria (401 sem sessão);
    - recria o contêiner com o **mesmo volume** e a configuração padrão de
-     produção: o cadastro e a sessão anteriores continuam válidos, a categoria
-     criada antes continua salva e o cookie volta a ter `Secure`.
+     produção: o cadastro e a sessão anteriores continuam válidos, as
+     categorias e movimentações criadas antes continuam salvas e o cookie volta
+     a ter `Secure`.
 5. Publica no Docker Hub, **somente quando chamado pela pipeline completa**.
    Uma execução manual do job para após a verificação.
+   - A tag do SHA é sempre publicada. `latest` só é atualizada quando
+     `BRANCH=main` **e** o SHA ainda é a ponta da `main` no momento da
+     publicação. Execuções em outras branches nunca mexem em `latest`.
    - O login usa a credencial `dockerhub-credentials` com `withCredentials` e
      `docker login --password-stdin`. O token não aparece no log.
    - O login fica num `DOCKER_CONFIG` temporário desta execução, apagado ao
@@ -50,42 +70,156 @@ Se qualquer job anterior falhar (build do frontend ou do backend, testes do
 frontend, unitários, integração ou cobertura), a pipeline para antes do Deploy
 e nada é publicado.
 
-## Executar a imagem publicada
+## Guia rápido: executar a imagem publicada
 
-Troque `<SHA>` pelo SHA completo mostrado na descrição do build ou em
-`imagem-publicada.txt`. No PowerShell:
+Só é preciso o Docker Desktop. Os comandos são para PowerShell e podem ser
+executados em qualquer pasta. O exemplo usa a tag já publicada e comprovada
+(veja [Evidências registradas](#evidências-registradas)):
+
+- Tag: `5060557ebf4a6ac645b440cf81386703898ec6f6`
+- Digest: `sha256:992615103d321f93dd9e8ef86aece8ee7a56eff828267575fc9c7dd393f19d3b`
+
+`latest` ainda não foi publicada: ela só aparece depois de uma pipeline na
+`main`. Use sempre a tag do SHA para saber exatamente qual versão está rodando.
+
+### 1. Conferir o Docker Desktop
 
 ```powershell
-$IMAGEM = "bunnyzzw/controle-financeiro-c14:<SHA>"
-docker pull $IMAGEM
+docker version
+docker info --format '{{.OSType}}/{{.Architecture}}'
+```
 
-# Volume nomeado para o SQLite: sobrevive à remoção e à recriação do contêiner.
+O primeiro comando precisa mostrar **Client** e **Server**. Sem o Server, abra o
+Docker Desktop e espere iniciar. O segundo deve mostrar `linux/x86_64`. A imagem
+só tem a plataforma `linux/amd64`.
+
+### 2. Baixar a imagem pela tag do SHA
+
+```powershell
+$IMAGEM = "bunnyzzw/controle-financeiro-c14:5060557ebf4a6ac645b440cf81386703898ec6f6"
+docker pull $IMAGEM
+```
+
+A última linha do `docker pull` mostra o `Digest`, que deve ser o digest acima.
+
+### 3. Iniciar o contêiner
+
+```powershell
+# Uma vez só: o volume guarda o banco SQLite (/data/financeiro.sqlite).
 docker volume create controle-financeiro-dados
 
-# COOKIE_SECURE=false porque este teste é por HTTP (veja a seção do cookie).
-docker run -d --name controle-financeiro -p 3000:3000 `
+docker run -d --name controle-financeiro `
+  -p 127.0.0.1:3000:3000 `
   -v controle-financeiro-dados:/data `
   -e COOKIE_SECURE=false `
   $IMAGEM
-
-Invoke-RestMethod http://localhost:3000/health   # deve mostrar status ok
 ```
 
-Abra `http://localhost:3000` para usar o frontend. A API responde em
-`http://localhost:3000/api/...`, o mesmo caminho do proxy do Vite no
-desenvolvimento. As rotas sem o prefixo, como `/health`, continuam funcionando.
+- `127.0.0.1:3000:3000` publica a porta só para este computador, e não para a
+  rede.
+- `COOKIE_SECURE=false` é necessário porque o acesso é por HTTP. Sem ele, o login
+  pela API funciona, mas o navegador não devolve o cookie (veja
+  [Cookie da sessão por HTTP](#cookie-da-sessão-por-http)).
 
-Para conferir que os dados ficam no volume, recrie o contêiner com o mesmo
-volume e entre com a conta criada antes:
+### 4. Abrir e conferir
+
+```powershell
+docker ps --filter "name=^controle-financeiro$"
+Invoke-RestMethod http://localhost:3000/health     # status: ok
+Start-Process http://localhost:3000
+```
+
+O status deve ficar `(healthy)` alguns segundos depois de iniciar. A API também
+responde em `http://localhost:3000/api/...`. As rotas sem o prefixo, como
+`/health`, continuam funcionando.
+
+### 5. Parar e iniciar de novo
+
+```powershell
+docker stop controle-financeiro
+docker start controle-financeiro
+```
+
+`stop` e `start` reaproveitam o mesmo contêiner, e os dados continuam no volume.
+Não repita o `docker run` para um contêiner que já existe.
+
+### 6. Atualizar para outra tag sem perder os dados
+
+```powershell
+$IMAGEM = "bunnyzzw/controle-financeiro-c14:<SHA-completo-da-nova-versão>"
+docker pull $IMAGEM
+
+# Remove só o contêiner. O volume e o banco continuam.
+docker rm -f controle-financeiro
+
+docker run -d --name controle-financeiro `
+  -p 127.0.0.1:3000:3000 `
+  -v controle-financeiro-dados:/data `
+  -e COOKIE_SECURE=false `
+  $IMAGEM
+```
+
+As migrations do banco são aplicadas sozinhas na primeira execução da versão
+nova. Prefira sempre avançar: voltar para uma tag mais antiga com um banco já
+migrado não foi testado.
+
+### 7. Conflito de nome ou de porta
+
+| Mensagem | O que fazer |
+| --- | --- |
+| `Conflict. The container name "/controle-financeiro" is already in use` | O contêiner já existe. Use `docker start controle-financeiro`, ou siga o passo 6 para trocar a imagem. |
+| `Bind for 127.0.0.1:3000 failed: port is already allocated` | Outro programa usa a porta. Neste caso o Docker cria o contêiner novo, mas não o inicia: remova-o com `docker rm controle-financeiro` antes de tentar de novo. |
+
+Para descobrir quem ocupa a porta 3000:
+
+```powershell
+docker ps --filter "publish=3000"
+Get-NetTCPConnection -LocalPort 3000 -State Listen | ForEach-Object { Get-Process -Id $_.OwningProcess }
+```
+
+Se a porta for de outro programa, use outra porta só do lado do Windows, por
+exemplo `-p 127.0.0.1:3001:3000`, e abra `http://localhost:3001`.
+
+### 8. Apagar tudo
 
 ```powershell
 docker rm -f controle-financeiro
-docker run -d --name controle-financeiro -p 3000:3000 `
-  -v controle-financeiro-dados:/data -e COOKIE_SECURE=false $IMAGEM
+docker volume rm controle-financeiro-dados   # APAGA o banco: contas, categorias e lançamentos
 ```
 
-Para apagar tudo do teste: `docker rm -f controle-financeiro` e
-`docker volume rm controle-financeiro-dados`. Remover o volume apaga o banco.
+Remover só o contêiner não apaga nada. **Remover o volume apaga o banco
+definitivamente.**
+
+### Limitações para quem for demonstrar
+
+Na tag `5060557…`:
+
+- **Funciona na interface:** página inicial, cadastro de conta (grava no banco) e
+  prévia de faturas CSV e PDF do Itaú.
+- **A tela de login não chama a API.** Ela só confere se os campos foram
+  preenchidos e libera a navegação, sem criar sessão. Por isso:
+  - a tela de categorias mostra "Faça login para ver suas categorias.";
+  - confirmar uma importação de fatura responde 401.
+- **Dashboard e Home** mostram dados de exemplo fixos, e não os do banco.
+- **Movimentações** não existem nessa tag (`/api/movimentacoes` responde 404).
+  Elas entram na próxima imagem, que sai do merge com o trabalho do Igor. Nem
+  essa imagem terá uma tela de movimentações: o acesso é só pela API.
+
+Contorno para demonstrar categorias e a confirmação de faturas, sem alterar o
+código: depois de criar a conta pela tela, abra o console do navegador (F12 →
+Console) em `http://localhost:3000` e entre pela API. O cookie fica guardado
+para as telas seguintes:
+
+```javascript
+await fetch("/api/auth/login", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ email: "seu-email@example.test", senha: "sua-senha" }),
+}).then((resposta) => resposta.status)   // 200 = sessão criada
+```
+
+Apresente isso como um contorno: o login pela tela ainda é uma pendência
+([autenticação](../autenticacao.md#pendente-login-pela-tela)).
 
 ### Configuração da imagem
 
@@ -107,7 +241,7 @@ essas permissões.
 
 Em produção o cookie `sessao` é `Secure`, e o navegador só o envia por HTTPS.
 O teste local é por `http://localhost`, então use **`COOKIE_SECURE=false`**,
-como nos comandos acima. A imagem continua com `NODE_ENV=production`. Ao
+como nos comandos do guia rápido. A imagem continua com `NODE_ENV=production`. Ao
 publicar atrás de HTTPS, não defina `COOKIE_SECURE`, ou use `true`. A
 verificação do Jenkins testa as duas configurações.
 
@@ -174,6 +308,43 @@ Jenkins.
    - Description: Docker Hub — publicação da imagem
 3. Salve. O token fica só no Jenkins: não o coloque no repositório, no `.env`
    nem em mensagens.
+
+## Evidências registradas
+
+### Publicação comprovada do commit `5060557`
+
+Execução no Jenkins do PC do Caio, na `Branch-Caio`, **antes** da integração
+das movimentações do Igor (PR #34):
+
+| Item | Registro |
+| --- | --- |
+| Pipeline | `pipeline-completa` #3: `SUCCESS` |
+| Deploy | `backend-deploy` #3: `SUCCESS`, com a mensagem `Publicação comprovada` |
+| Commit | `5060557ebf4a6ac645b440cf81386703898ec6f6` |
+| Imagem | `bunnyzzw/controle-financeiro-c14:5060557ebf4a6ac645b440cf81386703898ec6f6` |
+| Digest | `sha256:992615103d321f93dd9e8ef86aece8ee7a56eff828267575fc9c7dd393f19d3b` |
+| Artefatos | `imagem-publicada.txt` e `verificacao.log` |
+| Conferência fora do Jenkins | `docker pull` feito pelo Caio mostrou o mesmo digest. Em 10/11/2026, `docker buildx imagetools inspect` também mostrou esse digest, com a plataforma `linux/amd64`. |
+
+A verificação daquele deploy conferiu o frontend, `/health`, `/api/health`, o
+404 da API, cadastro, login, cookies e categorias. Depois recriou o contêiner
+com o mesmo volume e confirmou que usuário, sessão e categorias foram
+preservados.
+
+Essa evidência vale **só para o commit `5060557`**. Ela não cobre as
+movimentações, que entraram depois.
+
+### Pendente
+
+1. **Integração com as movimentações:** executar a `pipeline-completa` de novo
+   na `Branch-Caio`, depois do commit do merge com a `main`. O deploy dessa
+   execução passa a verificar também as movimentações.
+2. **Depois do merge do PR na `main`:** executar a `pipeline-completa` com
+   `BRANCH=main`. É essa execução que publica `latest`, se o SHA ainda for a
+   ponta da `main`.
+
+Ao registrar cada execução, anote o número da pipeline e do deploy, o commit, a
+referência e o digest de `imagem-publicada.txt`.
 
 ## Versão anterior: deploy em pasta do agente
 

@@ -76,6 +76,17 @@ async function main() {
   const lista = JSON.parse((await chamar("/api/categories", { headers: { Cookie: sessao } })).texto);
   const esperadas = etapa === "antes" ? 1 : 2;
   conferir(`${esperadas} categoria(s) salva(s) no volume`, lista.length === esperadas);
+
+  // Movimentações: com e sem categoria, sempre do usuário da sessão.
+  conferir("movimentações exigem sessão (401)", (await chamar("/api/movimentacoes")).status === 401);
+  const despesa = { descricao: `Mercado ${etapa}`, tipo: "despesa", valorEmCentavos: 1500, data: "2026-11-10" };
+  const comCategoria = await postJson("/api/movimentacoes", { ...despesa, categoriaId: JSON.parse(categoria.texto).id }, sessao);
+  conferir("movimentação com categoria criada pela API (201)", comCategoria.status === 201);
+  const receita = { descricao: `Salário ${etapa}`, tipo: "receita", valorEmCentavos: 500000, data: "2026-11-05" };
+  conferir("movimentação sem categoria criada pela API (201)", (await postJson("/api/movimentacoes", receita, sessao)).status === 201);
+  const movimentacoes = JSON.parse((await chamar("/api/movimentacoes", { headers: { Cookie: sessao } })).texto);
+  const esperadasMov = etapa === "antes" ? 2 : 4;
+  conferir(`${esperadasMov} movimentações salvas no volume`, movimentacoes.length === esperadasMov);
 }
 
 main().catch((erro) => {

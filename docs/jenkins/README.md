@@ -4,7 +4,16 @@ Este guia prepara o Jenkins do projeto e explica como executar o build do fronte
 
 O ambiente utiliza contêineres Linux no Docker Desktop. Não é necessário instalar o Jenkins como serviço do Windows nem instalar Java, Node.js ou npm no computador apenas para executar este pipeline: essas ferramentas estão nas imagens do projeto.
 
-Cada integrante tem sua própria instância, com credenciais, histórico e arquivos gerados independentes. O repositório compartilha as definições do ambiente, não os dados de uma instalação existente.
+O repositório compartilha as definições do ambiente, não os dados de uma instalação existente. Veja [Quem pode executar e publicar](#quem-pode-executar-e-publicar).
+
+## Quem pode executar e publicar
+
+- O Jenkins em uso roda no **PC do Caio**. Ele só executa pipelines com esse computador ligado e o Docker Desktop aberto.
+- A imagem já publicada continua no Docker Hub com o PC desligado. Para **usar** a aplicação, ninguém precisa de Jenkins: veja o [guia rápido da imagem](../ci-cd/deploy.md#guia-rápido-executar-a-imagem-publicada).
+- Para **publicar novas imagens**, o grupo tem duas opções:
+  1. centralizar as publicações no Jenkins do Caio: faça push da branch e peça a execução da `pipeline-completa`;
+  2. preparar outra instalação com os arquivos deste repositório (seções 1 a 3) e uma credencial do Docker Hub autorizada pelo dono do repositório `bunnyzzw/controle-financeiro-c14`.
+- Atualizar os arquivos no GitHub **não** transfere usuários, senhas, credenciais, histórico ou artefatos de um Jenkins para outro. Cada instalação tem o próprio administrador, o próprio segredo do `agent-node-v2` e a própria credencial `dockerhub-credentials`.
 
 ## 1. Pré-requisitos
 
@@ -97,39 +106,75 @@ O cadastro `agent-node-v2` é criado pela configuração do projeto. Ele aparece
 
 Não execute o comando `java -jar agent.jar` mostrado nessa tela no seu terminal: a conexão será feita pelo contêiner do agente.
 
-**Terminal PowerShell — criar a pasta local e abrir o arquivo de credencial:**
+Com o segredo copiado para a área de transferência, crie o arquivo. O comando grava só o segredo, sem quebra de linha e em UTF-8 sem BOM, e não o mostra no terminal.
+
+**Terminal PowerShell — na raiz do repositório, criar o arquivo do segredo:**
 
 ```powershell
+$arquivo = Join-Path (Get-Location) ".secrets\jenkins-agent-secret.txt"
 New-Item -ItemType Directory -Path .\.secrets -Force | Out-Null
-notepad .\.secrets\jenkins-agent-secret.txt
+Test-Path -LiteralPath $arquivo -PathType Container   # precisa ser False; se for True, veja abaixo
+[System.IO.File]::WriteAllText($arquivo, (Get-Clipboard -Raw).Trim())
 ```
 
-No editor, salve apenas o segredo em uma linha, sem espaços adicionais. Use codificação **UTF-8 sem BOM** e confirme que o nome é exatamente `jenkins-agent-secret.txt`, sem uma segunda extensão `.txt`. Se o arquivo já existir, não substitua uma credencial válida por outra de uma instalação diferente.
+Se o arquivo já existir com o segredo desta instalação, não o substitua. Não use o segredo de outra instalação.
 
-**Terminal PowerShell — conferir a existência e a proteção pelo Git, sem mostrar o conteúdo:**
+**Terminal PowerShell — confirmar que o caminho é um arquivo e está ignorado pelo Git, sem mostrar o conteúdo:**
 
 ```powershell
 Test-Path -LiteralPath .\.secrets\jenkins-agent-secret.txt -PathType Leaf
+(Get-Item -LiteralPath .\.secrets\jenkins-agent-secret.txt).Length
 git check-ignore -v .secrets/jenkins-agent-secret.txt
 ```
 
-O primeiro comando deve retornar `True`. O segundo deve apontar a regra `/.secrets/` do `.gitignore`. Se o arquivo não estiver ignorado, corrija isso antes de fazer commits; nunca use `git add -f` nessa pasta.
+O primeiro comando deve retornar `True`: `Leaf` significa arquivo, e não pasta. O tamanho deve ser o número de caracteres do segredo (64 no formato atual do Jenkins), e não `0`. O terceiro comando deve apontar a regra `/.secrets/` do `.gitignore`. Se o arquivo não estiver ignorado, corrija isso antes de fazer commits; nunca use `git add -f` nessa pasta. **Só inicie o agente depois desta conferência.**
 
-O segredo deve ser obtido na instância de cada integrante. Não copie o segredo de um colega e não o coloque no Compose, no README, em issues ou em mensagens do grupo. O [mecanismo de secrets do Compose](https://docs.docker.com/compose/how-tos/use-secrets/) monta o arquivo apenas no serviço autorizado; o arquivo original continua sendo uma credencial sensível no computador.
+#### Quando o caminho do segredo virou uma pasta (`Failed to parse`)
 
-### 3.4. Iniciar o agente e conferir a conexão
+Se o agente for iniciado antes de o arquivo existir, o Docker Desktop pode criar `.secrets\jenkins-agent-secret.txt` como **pasta**. O agente então não consegue ler o segredo, e o log mostra `Failed to parse`.
+
+**Terminal PowerShell — diagnosticar:**
+
+```powershell
+Test-Path -LiteralPath .\.secrets\jenkins-agent-secret.txt -PathType Container   # True = é uma pasta
+docker compose -f compose.jenkins.yaml logs --tail 50 agent-node-v2
+```
+
+Para corrigir, pare só o agente e preserve a pasta com outro nome antes de criar o arquivo correto. Não apague a pasta sem antes conferir o que há nela.
+
+**Terminal PowerShell — na raiz do repositório:**
+
+```powershell
+docker compose -f compose.jenkins.yaml stop agent-node-v2
+Rename-Item -LiteralPath .\.secrets\jenkins-agent-secret.txt -NewName jenkins-agent-secret-pasta
+Get-ChildItem -LiteralPath .\.secrets -Force
+```
+
+Se já existir um `jenkins-agent-secret-pasta`, escolha outro nome. Depois crie o arquivo com os comandos acima, confirme com `Test-Path ... -PathType Leaf` e recrie o agente, como na seção 3.4. O controlador e os volumes não são afetados.
+
+O segredo deve ser obtido na própria instalação. Não copie o segredo de um colega e não o coloque no Compose, no README, em issues ou em mensagens do grupo. O [mecanismo de secrets do Compose](https://docs.docker.com/compose/how-tos/use-secrets/) monta o arquivo apenas no serviço autorizado; o arquivo original continua sendo uma credencial sensível no computador.
+
+### 3.4. Iniciar somente o agente e conferir a conexão
 
 **Terminal PowerShell — na raiz do repositório:**
 
 ```powershell
 docker compose -f compose.jenkins.yaml config --quiet
-docker compose -f compose.jenkins.yaml up -d --build
+docker compose -f compose.jenkins.yaml up -d --build --no-deps agent-node-v2
 docker compose -f compose.jenkins.yaml ps
 ```
 
-O primeiro comando valida a configuração. Se apresentar erro, resolva-o antes de executar os seguintes. O segundo inicia os dois serviços e constrói o ambiente do agente com as ferramentas de build.
+O primeiro comando valida a configuração. Se apresentar erro, resolva-o antes de executar os seguintes. O segundo constrói a imagem do agente e inicia só o `agent-node-v2`; `--no-deps` evita recriar o controlador. Se o agente já existia e você corrigiu o segredo, acrescente `--force-recreate` ao segundo comando para que ele leia o arquivo novo.
 
-Confirme que `jenkins` e `agent-node-v2` estão em execução. Na interface, o agente deve aparecer conectado e disponível. `Up` no Docker, sozinho, não comprova que o agente foi autenticado pelo Jenkins.
+Confirme que `jenkins` e `agent-node-v2` estão em execução. Em **Gerenciar Jenkins → Nós**, o `agent-node-v2` deve aparecer conectado e disponível. `Up` no Docker, sozinho, não comprova que o agente foi autenticado pelo Jenkins.
+
+**Terminal PowerShell — conferir o acesso do agente ao Docker Desktop, usado pelo deploy:**
+
+```powershell
+docker compose -f compose.jenkins.yaml exec agent-node-v2 docker version
+```
+
+A saída deve ter as seções **Client** e **Server**. Sem `Server` ou com `permission denied`, veja [Acesso do agente ao Docker](../ci-cd/deploy.md#acesso-do-agente-ao-docker). Para publicar imagens, cadastre também a [credencial do Docker Hub](../ci-cd/deploy.md#credencial-do-docker-hub).
 
 **Terminal PowerShell — consultar as mensagens recentes do agente:**
 
@@ -254,11 +299,17 @@ Depois de integrar as branches, a pipeline foi executada com `BRANCH=main`, na m
 - **Resultado final:** `SUCCESS`.
 - **Evidência:** [console da pipeline-completa #4](evidencias/pipeline-completa-main-2026-10-17.txt).
 
+Esses registros de 17/10/2026 são anteriores à imagem Docker: naquela época, o `backend-deploy` copiava o backend para uma pasta do agente.
+
+#### Publicação da imagem: `Branch-Caio`, commit `5060557`
+
+No Jenkins do PC do Caio: `pipeline-completa` #3 e `backend-deploy` #3 em `SUCCESS`, com a mensagem `Publicação comprovada`. A imagem foi publicada com o digest `sha256:9926…19d3b`, e a conferência incluiu cadastro, login, cookies, categorias e a persistência no volume. Registro completo em [evidências do deploy](../ci-cd/deploy.md#evidências-registradas). A numeração das execuções é própria de cada instalação e de cada job: o `backend-deploy` #3 de 17/10 é outra execução.
+
 Ainda não foram realizados:
 
+- **Integração com as movimentações:** nova execução na `Branch-Caio` depois do merge com a `main` e, após o merge do PR, uma execução na `main`, a única que publica `latest`.
 - **Instância limpa:** confirmar que uma instalação nova, construída a partir da `main`, cria os seis jobs com os parâmetros e plugins necessários.
 - **Gatilhos automáticos:** a pipeline e os jobs continuam sendo executados manualmente.
-- **Uso do banco pela API:** a aplicação publicada ainda não lê nem grava no SQLite, então cadastro e persistência pela API não foram validados.
 
 ## 6. Uso diário
 
@@ -333,6 +384,7 @@ A porta `8081` é usada pelo navegador. Dentro da rede do Compose, o agente aces
 | Não encontra `compose.jenkins.yaml` ou o contexto de build | Execute o comando na raiz do repositório e confirme se a branch contém os arquivos de infraestrutura. |
 | Porta `8081` ocupada | Identifique a aplicação que utiliza a porta antes de encerrar qualquer processo. Se precisar trocar a porta deste projeto, ajuste também a URL pública em `jenkins.yaml`; a porta interna do controlador continua sendo `8080`. |
 | Arquivo do segredo não encontrado | Confira a etapa 3.3 e a extensão exata do arquivo. Na primeira instalação, inicie somente `jenkins` até obter o segredo. |
+| `Failed to parse` no log do agente | O caminho `.secrets\jenkins-agent-secret.txt` provavelmente virou uma pasta. Siga [Quando o caminho do segredo virou uma pasta](#quando-o-caminho-do-segredo-virou-uma-pasta-failed-to-parse). |
 | Agente desconectado ou `Unauthorized` | Confira se o segredo pertence ao `agent-node-v2` desta instância, sem espaços nem BOM. Não use a senha do administrador. Após corrigir o arquivo, recrie somente o agente com o comando abaixo. |
 | Build fica aguardando um executor | Confirme que o agente está conectado, tem a label `node24` e não está ocupado com outro build. O controlador tem zero executores por configuração. |
 | Não encontra a revisão ou a branch | Confira a grafia do parâmetro `BRANCH` e se a branch foi enviada ao GitHub. Em execução manual, confira se `GIT_COMMIT_SHA` está com o valor padrão ou com um SHA completo existente. |

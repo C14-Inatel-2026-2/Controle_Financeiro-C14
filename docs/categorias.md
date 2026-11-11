@@ -7,8 +7,9 @@ faturas ficam com `categoria_id` NULL.
 
 ## Rotas
 
-As duas rotas exigem sessão (veja `docs/autenticacao.md`). O dono vem de
-`req.usuario.id`, nunca do corpo.
+As duas rotas exigem sessão (veja a [autenticação](autenticacao.md#rotas-protegidas)).
+O dono vem de `req.usuario.id`, nunca do corpo. O frontend chama
+`/api/categories`, e a rota também responde sem o prefixo.
 
 | Rota | Corpo | Respostas |
 | --- | --- | --- |
@@ -19,10 +20,36 @@ A regra de nome continua no `createCategoryService`, que já existia. Duas
 contas podem ter categorias com o mesmo nome. Assim como nas metas, a
 comparação diferencia maiúsculas ("Lazer" e "lazer" são categorias diferentes).
 
-## Ponto de ligação para a rota de movimentações (Igor)
+A tela `frontend/src/pages/Categorias.tsx` lista e cria categorias pela API.
+Enquanto a tela de login não criar a sessão, ela mostra "Faça login para ver
+suas categorias." (veja o [login pela tela](autenticacao.md#pendente-login-pela-tela)).
 
-O repositório `criarRepositorioMovimentacoes` (PR #8) aceita agora o campo
-opcional `categoriaId` em `NovaMovimentacao`:
+## Movimentações com categoria
+
+As rotas de movimentações vieram do PR #34 (Igor), em
+`backend/src/routes/movimentacoes.ts`. As duas exigem sessão e respondem em
+`/api/movimentacoes` e em `/movimentacoes`.
+
+| Rota | Corpo | Respostas |
+| --- | --- | --- |
+| `GET /movimentacoes` | — | `200 [{ id, descricao, tipo, valorEmCentavos, data, categoriaId }]` só do usuário da sessão, por data e id; `401` |
+| `POST /movimentacoes` | `{ descricao, tipo: "receita" \| "despesa", valorEmCentavos, data: "AAAA-MM-DD", categoriaId? }` | `201 { id }`; `400 VALIDATION_ERROR` ("Dados da movimentação inválidos."); `404 CATEGORY_NOT_FOUND` (categoria inexistente **ou** de outra conta, mesma resposta); `401` |
+
+- `valorEmCentavos` é um inteiro seguro maior ou igual a zero. A data precisa
+  existir no calendário.
+- `categoriaId` é opcional. Ausente ou `null`, o lançamento fica sem categoria.
+- Um `usuarioId` no corpo é ignorado.
+- Não há tela de movimentações: hoje o acesso é só pela API.
+
+Testes: `backend/tests/integration/movimentacoes-http.test.ts` cobre os dois
+caminhos (`/movimentacoes` e `/api/movimentacoes`): exigência de login, gravação
+com e sem categoria, listagem isolada por conta e rejeição de categoria alheia
+ou inexistente sem gravar nada.
+
+### No repositório
+
+O repositório `criarRepositorioMovimentacoes` (PR #8) aceita o campo opcional
+`categoriaId` em `NovaMovimentacao`:
 
 - `undefined` ou `null`: grava com `categoria_id` NULL. O SQL é exatamente o
   de antes, então a importação de faturas e os testes existentes não mudam.
@@ -43,39 +70,12 @@ lançamentos sem categoria, o valor é `null` (o campo sempre aparece):
 ]
 ```
 
-A rota `GET` de movimentações pode devolver esse resultado como está. O
-nome da categoria não vem junto: a tela cruza `categoriaId` com a lista de
-`GET /categories`. Os testes `database.test.ts` e `movimentacoes.unit.test.ts`
-já foram ajustados para esse formato.
+A rota `GET` devolve esse resultado como está. O nome da categoria não vem
+junto: uma futura tela cruza `categoriaId` com a lista de `GET /categories`.
+Os testes do repositório estão em `backend/tests/integration/categories.test.ts`.
 
-Na rota, basta repassar o campo do corpo e traduzir o `ValidationError`, como
-o `createUserController` já faz:
+## Ainda falta
 
-```typescript
-router.post("/", exigirSessao, (req, res) => {
-  try {
-    const id = movimentacoes.inserir(req.usuario!.id, {
-      descricao: req.body.descricao,
-      tipo: req.body.tipo,
-      valorEmCentavos: req.body.valorEmCentavos,
-      data: req.body.data,
-      categoriaId: req.body.categoriaId, // opcional
-    });
-    res.status(201).json({ id });
-  } catch (erro) {
-    if (erro instanceof ValidationError) {
-      res.status(400).json({ erro: { codigo: "VALIDATION_ERROR", mensagem: erro.message, campo: erro.campo } });
-      return;
-    }
-    res.status(500).json({ erro: { codigo: "INTERNAL_ERROR", mensagem: "Não foi possível salvar a movimentação." } });
-  }
-});
-```
-
-Ainda falta, na parte do Igor:
-
-1. A rota acima, com a validação dos outros campos. Hoje o repositório só
-   valida o valor, e o banco rejeita tipo e data inválidos.
-2. Os testes HTTP da rota: com categoria válida, inexistente, de outra conta
-   e sem categoria, e a listagem com `categoriaId`. Os testes do repositório
-   já estão em `backend/tests/integration/categories.test.ts`.
+- Tela de movimentações, com escolha da categoria.
+- Totais por categoria (resumo do RF07).
+- Login pela tela, para a tela de categorias funcionar sem contorno.

@@ -6,6 +6,10 @@ sozinho. O JavaScript da tela não lê nem guarda token nenhum.
 
 ## Rotas
 
+Todas as rotas da API respondem com o prefixo `/api`, usado pelo frontend e
+pela imagem Docker (por exemplo, `POST /api/auth/login`), e também sem ele,
+por compatibilidade.
+
 | Rota | Corpo | Respostas |
 | --- | --- | --- |
 | `POST /auth/login` | `{ "email": string, "senha": string }` | `200 { id, nome, email }` + cookie `sessao`; `400 VALIDATION_ERROR` (campo ausente, vazio ou não texto, com `campo`); `401 INVALID_CREDENTIALS` (senha errada **ou** e-mail inexistente, mesma mensagem); `500 INTERNAL_ERROR` |
@@ -25,43 +29,48 @@ para uma resposta.
   estar atrás de HTTPS. Para testar a imagem por HTTP, defina
   `COOKIE_SECURE=false` sem mexer no `NODE_ENV`. `COOKIE_SECURE=true` força o
   `Secure`, e outro valor impede o servidor de subir (`backend/src/config.ts`).
-  Veja `docs/ci-cd/deploy.md`.
+  Veja o [guia do deploy](ci-cd/deploy.md#cookie-da-sessão-por-http).
 - O banco guarda só o SHA-256 do token. Sessões vencidas deixam de valer na
   hora e são apagadas a cada novo login.
 
-## Contrato para rotas protegidas (Igor: movimentações)
+## Rotas protegidas
 
-`createApp` roda `carregarSessao` antes de todas as rotas. Com uma sessão
-válida, a requisição chega com `req.usuario = { id: number }`. Para proteger
-uma rota, use `exigirSessao`, que responde `401 AUTHENTICATION_REQUIRED`
-quando não há sessão:
+`createApp` monta as rotas num `Router` da API, nesta ordem:
 
-```typescript
-import { exigirSessao } from "../middlewares/sessao.js";
+1. `carregarSessao`: com uma sessão válida, a requisição ganha
+   `req.usuario = { id: number }`;
+2. `/invoice-imports`, que lê o próprio corpo;
+3. `express.json()` e as rotas de `/health`;
+4. `/movimentacoes`, `/auth`, `/categories`, `/goals` e `/users`.
 
-router.use(exigirSessao);
-router.get("/", (req, res) => {
-  res.json(movimentacoes.listar(req.usuario!.id));
-});
-router.post("/", (req, res) => {
-  // req.body traz descricao, tipo, valorEmCentavos e data, nunca usuarioId.
-  const id = movimentacoes.inserir(req.usuario!.id, dados);
-  res.status(201).json({ id });
-});
-```
+Esse `Router` é montado em `/api` e depois na raiz. Entre os dois ficam o 404
+em JSON para qualquer `/api/...` desconhecido e o frontend estático da imagem
+(`FRONTEND_DIR`).
 
-- O ID do usuário vem **só** de `req.usuario.id`. Ignore qualquer `usuarioId`
-  enviado no corpo, na URL ou em cabeçalhos.
-- O repositório `criarRepositorioMovimentacoes` (PR #8) não muda: `inserir` e
-  `listar` já recebem o ID do usuário.
-- Monte o router depois de `app.use(express.json())` em `createApp` e passe o
-  repositório por `createAppComBanco`, como as outras rotas.
+Para proteger uma rota, use `exigirSessao`, que responde
+`401 AUTHENTICATION_REQUIRED` quando não há sessão. O ID do usuário vem **só**
+de `req.usuario.id`: qualquer `usuarioId` enviado no corpo, na URL ou em
+cabeçalhos é ignorado.
 
-A confirmação de faturas já usa esse contrato: `createAppComBanco` passa
-`invoiceIdentity: (req) => req.usuario?.id`. A prévia continua pública, e a
-confirmação sem sessão responde `401 AUTHENTICATION_REQUIRED`.
+Usam esse contrato hoje:
 
-## O que a tela `Login.tsx` precisa fazer
+- **Movimentações** (`backend/src/routes/movimentacoes.ts`, PR #34): `GET` e
+  `POST /movimentacoes` exigem sessão. Veja
+  [movimentações com categoria](categorias.md#movimentações-com-categoria).
+- **Categorias:** `GET` e `POST /categories`.
+- **Confirmação de faturas:** `createAppComBanco` passa
+  `invoiceIdentity: (req) => req.usuario?.id`. A prévia continua pública, e a
+  confirmação sem sessão responde `401 AUTHENTICATION_REQUIRED`.
+
+## Pendente: login pela tela
+
+A API de login está pronta e é testada, inclusive dentro da imagem Docker, mas
+a tela `frontend/src/pages/Login.tsx` ainda não a chama: ela só confere o
+preenchimento e libera a navegação. Sem sessão, a tela de categorias e a
+confirmação de faturas respondem 401. O contorno para demonstrações está no
+[guia rápido do deploy](ci-cd/deploy.md#limitações-para-quem-for-demonstrar).
+
+O que a tela precisa fazer:
 
 1. Enviar `POST /api/auth/login` com `Content-Type: application/json` e
    `{ email, senha }`. Na mesma origem, que é o caso do proxy `/api` do Vite,

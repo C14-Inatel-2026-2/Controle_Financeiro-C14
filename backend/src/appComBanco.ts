@@ -10,6 +10,8 @@ import { criarRepositorioCredenciais } from "./repositories/credenciais.js";
 import { criarRepositorioSessoes } from "./repositories/sessoes.js";
 import { createSqliteCategoryRepository } from "./features/categories/infrastructure/sqlite-category-repository.js";
 
+import { criarRepositorioMovimentacoes } from "./repositories/movimentacoes.js";
+
 interface OpcoesApp {
   cookieSeguro?: boolean;
   pastaFrontend?: string;
@@ -18,6 +20,7 @@ interface OpcoesApp {
 export function createAppComBanco(db: DatabaseSync, { cookieSeguro = false, pastaFrontend }: OpcoesApp = {}) {
   const usuarios = createSqliteUserRepository(db);
   return createApp({
+    movimentacoes: criarRepositorioMovimentacoes(db),
     goalCatalog: createSqliteGoalRepository(db),
     criarUsuario: (dados) => createUserService(dados, usuarios),
     invoiceWorkflow: new InvoiceImportWorkflow(createDefaultInvoiceImportService(), createSqliteInvoiceImportRepository(db)),
