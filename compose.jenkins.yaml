@@ -52,6 +52,15 @@ services:
       # Os arquivos de trabalho ficam separados dos dados do controlador.
       - jenkins_agent_workdir:/home/jenkins/agent
 
+      # Dá ao agente acesso ao Docker Desktop para construir e publicar a imagem.
+      # Quem usa este socket controla todo o Docker do computador: veja docs/ci-cd/deploy.md.
+      - /var/run/docker.sock:/var/run/docker.sock
+
+    # Grupo dono do socket dentro do contêiner, para o usuário jenkins poder usá-lo.
+    # No Docker Desktop costuma ser 0. Outro valor pode ir em DOCKER_SOCKET_GID no arquivo .env.
+    group_add:
+      - "${DOCKER_SOCKET_GID:-0}"
+
 volumes:
   jenkins_home:
   jenkins_agent_workdir:

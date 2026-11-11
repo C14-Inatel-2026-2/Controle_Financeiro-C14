@@ -17,7 +17,7 @@ properties([
         )
     ]),
 
-    // Duas execuções simultâneas disputariam o mesmo agente e a mesma pasta de deploy.
+    // Duas execuções simultâneas disputariam o mesmo agente e a mesma publicação da imagem.
     disableConcurrentBuilds(),
 
     // Limita o histórico armazenado neste Jenkins local.
@@ -97,8 +97,17 @@ timeout(time: 60, unit: 'MINUTES') {
 
     // Só chega aqui se o build e os testes passaram: o build step propaga a
     // falha por padrão, interrompendo a pipeline antes de publicar qualquer coisa.
+    // O backend-deploy constrói a imagem com este mesmo SHA e a publica no Docker Hub.
     stage('Deploy') {
-        build job: 'backend-deploy',
-              parameters: parametros
+        def deploy = build job: 'backend-deploy',
+                           parameters: parametros
+
+        // Conferência independente da detecção feita no backend-deploy: a descrição
+        // dele só traz referência e digest quando imagem-publicada.txt foi gerado.
+        def descricao = deploy.description ?: ''
+        if (!(descricao ==~ /referencia=\S+:${commit} \| digest=\S+@sha256:[0-9a-f]{64} \| latest=(true|false)/)) {
+            error "backend-deploy #${deploy.number} terminou sem comprovar a publicação de ${commit}. Descrição: '${descricao}'"
+        }
+        echo "Imagem publicada: ${descricao}"
     }
 }

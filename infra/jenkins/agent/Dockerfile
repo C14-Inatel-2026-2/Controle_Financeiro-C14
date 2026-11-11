@@ -2,6 +2,10 @@
 # A variante Debian evita misturar bibliotecas de distribuições incompatíveis.
 FROM node:24.21.0-trixie-slim AS node
 
+# Origem da CLI do Docker e do plugin buildx, binários estáticos usados pelo job
+# backend-deploy. O daemon é o Docker Desktop, alcançado pelo socket montado no Compose.
+FROM docker:28.5.1-cli AS docker
+
 # Esta imagem fornece Java, Git e o programa de conexão com o controlador.
 FROM jenkins/inbound-agent:3391.va_37fa_a_305d6d-5-jdk21
 
@@ -18,6 +22,9 @@ RUN apt-get update \
 COPY --from=node /usr/local/bin/node /usr/local/bin/node
 COPY --from=node /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/npm
 
+COPY --from=docker /usr/local/bin/docker /usr/local/bin/docker
+COPY --from=docker /usr/local/libexec/docker/cli-plugins/docker-buildx /usr/local/libexec/docker/cli-plugins/docker-buildx
+
 # Disponibiliza os comandos npm e npx no PATH, apontando para seus programas.
 RUN ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
     && ln -s ../lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx
@@ -29,4 +36,6 @@ USER jenkins
 RUN node --version \
     && npm --version \
     && git --version \
-    && java -version
+    && java -version \
+    && docker --version \
+    && docker buildx version

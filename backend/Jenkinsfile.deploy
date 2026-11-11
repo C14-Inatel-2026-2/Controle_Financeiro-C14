@@ -7,29 +7,27 @@ pipeline {
         // O checkout será explícito para permitir limpar o workspace antes.
         skipDefaultCheckout(true)
 
-        // Dois deploys ao mesmo tempo disputariam a mesma pasta e a mesma porta.
+        // Duas execuções ao mesmo tempo disputariam o mesmo contêiner de verificação.
         disableConcurrentBuilds()
 
-        // Evita que uma execução travada ocupe o agente indefinidamente.
-        timeout(time: 15, unit: 'MINUTES')
+        // A primeira construção baixa as imagens base e instala as dependências dos dois projetos.
+        timeout(time: 30, unit: 'MINUTES')
 
         // Limita o histórico e os artefatos armazenados neste Jenkins local.
         buildDiscarder(logRotator(numToKeepStr: '10'))
     }
 
     environment {
-        // Fica fora do workspace, que é apagado a cada execução, e dentro do
-        // volume do agente, para sobreviver ao reinício do contêiner.
-        DEPLOY_DIR = '/home/jenkins/agent/deploy/controle-financeiro'
+        // Repositório público no Docker Hub.
+        IMAGEM = 'bunnyzzw/controle-financeiro-c14'
 
-        // Mesma porta usada por backend/src/server.ts.
-        APP_PORT = '3000'
+        // Nome do contêiner e do volume temporários da verificação, únicos por execução.
+        VERIFICACAO = "c14-verificacao-${env.BUILD_NUMBER}"
     }
 
     stages {
         stage('Obter código') {
             steps {
-                // Limpa somente o workspace deste job, não a pasta de deploy.
                 deleteDir()
 
                 // Usa o repositório e a revisão configurados no job: o
@@ -38,135 +36,164 @@ pipeline {
 
                 // Falha se o HEAD não for a revisão pedida ao job.
                 load 'infra/jenkins/confirmar-revisao.groovy'
-            }
-        }
 
-        stage('Instalar dependências') {
-            steps {
-                dir('backend') {
-                    // Instala conforme o lockfile, sem atualizá-lo.
-                    sh 'npm ci'
+                script {
+                    // A tag é o SHA completo do commit aprovado pelos builds e testes.
+                    env.COMMIT = sh(script: 'git rev-parse HEAD', returnStdout: true).trim()
+                    env.REFERENCIA = "${env.IMAGEM}:${env.COMMIT}"
+                    currentBuild.description = env.REFERENCIA
+
+                    // O step build registra BuildUpstreamCause, subclasse de UpstreamCause,
+                    // e getBuildCauses('hudson.model.Cause$UpstreamCause') não a encontrava.
+                    // A lista sem filtro traz o projeto de origem em upstreamProject.
+                    def causas = currentBuild.getBuildCauses()
+                    echo "Causas desta execução: ${causas.collect { it._class }}"
+                    env.CHAMADO_PELA_PIPELINE = causas.any { it.upstreamProject == 'pipeline-completa' } ? 'true' : 'false'
+                    echo "Chamado pela pipeline-completa: ${env.CHAMADO_PELA_PIPELINE}"
                 }
             }
         }
 
-        stage('Testes do backend') {
+        stage('Conferir acesso ao Docker') {
             steps {
-                dir('backend') {
-                    // É este estágio que torna os arquivos "aprovados": uma
-                    // falha aqui interrompe o pipeline e a versão que está no
-                    // ar continua intacta, sem ser substituída.
-                    sh 'npm test'
-                }
+                // Falha cedo se o agente não alcança o Docker Desktop (veja docs/ci-cd/deploy.md).
+                sh 'docker version'
             }
         }
 
-        stage('Build do backend') {
-            steps {
-                dir('backend') {
-                    sh 'npm run build'
-
-                    // Garante que o build realmente produziu o que será publicado.
-                    sh 'test -f dist/server.js'
-                }
-            }
-        }
-
-        stage('Publicar na pasta de deploy') {
+        stage('Construir imagem') {
             steps {
                 sh '''
                     set -eu
-
-                    # A pasta de dados é criada uma única vez e nunca é apagada:
-                    # é nela que o SQLite sobrevive de uma versão para a outra.
-                    mkdir -p "$DEPLOY_DIR/data"
-
-                    # A nova versão é montada ao lado da que está no ar, para
-                    # que a troca seja rápida e a aplicação fique parada o
-                    # mínimo de tempo possível.
-                    rm -rf "$DEPLOY_DIR/app.novo"
-                    mkdir -p "$DEPLOY_DIR/app.novo"
-
-                    cp -r backend/dist "$DEPLOY_DIR/app.novo/"
-                    cp backend/package.json backend/package-lock.json "$DEPLOY_DIR/app.novo/"
-
-                    # Somente as dependências de produção: o que é de teste e de
-                    # build não precisa acompanhar a aplicação publicada.
-                    cd "$DEPLOY_DIR/app.novo"
-                    npm ci --omit=dev
+                    docker build --pull \
+                        --label "org.opencontainers.image.revision=$COMMIT" \
+                        --label "org.opencontainers.image.source=https://github.com/C14-Inatel-2026-2/Controle_Financeiro-C14" \
+                        --tag "$REFERENCIA" .
                 '''
             }
         }
 
-        stage('Reiniciar a aplicação') {
+        stage('Verificar imagem') {
             steps {
                 sh '''
                     set -eu
 
-                    # Encerra a versão anterior, se ainda houver uma rodando.
-                    if [ -f "$DEPLOY_DIR/app.pid" ]; then
-                        PID=$(cat "$DEPLOY_DIR/app.pid")
-                        if kill -0 "$PID" 2>/dev/null; then
-                            kill "$PID"
-                            sleep 2
-                        fi
-                        rm -f "$DEPLOY_DIR/app.pid"
+                    # A imagem final leva só o necessário e não executa como root.
+                    conteudo=$(docker run --rm --entrypoint ls "$REFERENCIA" -A /app | xargs)
+                    if [ "$conteudo" != "dist node_modules package.json public" ]; then
+                        echo "Conteúdo inesperado em /app: $conteudo"
+                        exit 1
+                    fi
+                    if [ "$(docker run --rm --entrypoint id "$REFERENCIA" -u)" = "0" ]; then
+                        echo "A imagem não deve executar como root."
+                        exit 1
                     fi
 
-                    # Troca a versão publicada. A pasta data/ não é tocada.
-                    # O teste do diretório fica dentro do if porque, no primeiro
-                    # deploy, a pasta app/ ainda não existe e o set -e abortaria
-                    # o script num teste que termina com erro.
-                    rm -rf "$DEPLOY_DIR/app.anterior"
-                    if [ -d "$DEPLOY_DIR/app" ]; then
-                        mv "$DEPLOY_DIR/app" "$DEPLOY_DIR/app.anterior"
-                    fi
-                    mv "$DEPLOY_DIR/app.novo" "$DEPLOY_DIR/app"
+                    docker volume create "$VERIFICACAO" > /dev/null
 
-                    # O diretório atual é a pasta de deploy, e não a app/: é
-                    # assim que o caminho relativo usado por abrirBanco() cai
-                    # sempre no mesmo data/financeiro.sqlite preservado.
-                    cd "$DEPLOY_DIR"
+                    # 1ª execução: teste por HTTP, com o Secure desligado explicitamente.
+                    docker run -d --name "$VERIFICACAO" -v "$VERIFICACAO:/data" -e COOKIE_SECURE=false "$REFERENCIA" > /dev/null
+                    docker exec -i -e ETAPA=antes "$VERIFICACAO" node - < infra/jenkins/verificar-imagem.js
 
-                    # Sem o JENKINS_NODE_COOKIE, o Jenkins encerra os processos
-                    # que sobram do build e derruba a aplicação logo após o deploy.
-                    JENKINS_NODE_COOKIE=dontKillMe nohup node app/dist/server.js > "$DEPLOY_DIR/app.log" 2>&1 &
-                    echo $! > "$DEPLOY_DIR/app.pid"
+                    # 2ª execução: contêiner novo, mesmo volume e configuração padrão (cookie Secure).
+                    docker rm -f "$VERIFICACAO" > /dev/null
+                    docker run -d --name "$VERIFICACAO" -v "$VERIFICACAO:/data" "$REFERENCIA" > /dev/null
+                    docker exec -i -e ETAPA=depois "$VERIFICACAO" node - < infra/jenkins/verificar-imagem.js
                 '''
             }
         }
 
-        stage('Verificar a aplicação') {
+        stage('Publicar no Docker Hub') {
+            // Só publica quando chamado pela pipeline completa, depois dos builds e testes do mesmo SHA.
+            // Uma execução manual deste job constrói e verifica a imagem, mas não a publica.
+            when {
+                environment name: 'CHAMADO_PELA_PIPELINE', value: 'true'
+            }
             steps {
-                sh '''
-                    set -eu
+                script {
+                    // latest acompanha só a main, e só se o SHA ainda for a ponta dela.
+                    def pontaDaMain = sh(script: 'git ls-remote origin refs/heads/main | cut -f1', returnStdout: true).trim()
+                    env.PUBLICAR_LATEST = (params.BRANCH == 'main' && env.COMMIT == pontaDaMain) ? 'true' : 'false'
+                }
 
-                    # A aplicação leva um instante para abrir a porta, então a
-                    # verificação tenta algumas vezes antes de considerar falha.
-                    for _ in 1 2 3 4 5 6 7 8 9 10; do
-                        if node -e "fetch('http://localhost:'+process.env.APP_PORT+'/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"; then
-                            echo "Aplicação respondeu em /health."
-                            exit 0
+                withCredentials([usernamePassword(
+                    credentialsId: 'dockerhub-credentials',
+                    usernameVariable: 'DOCKERHUB_USUARIO',
+                    passwordVariable: 'DOCKERHUB_TOKEN'
+                )]) {
+                    sh '''
+                        set -eu
+
+                        # O login fica num diretório próprio desta execução, apagado ao sair, inclusive em falha.
+                        DOCKER_CONFIG=$(mktemp -d)
+                        export DOCKER_CONFIG
+                        trap 'rm -rf "$DOCKER_CONFIG"' EXIT
+                        printf '%s' "$DOCKERHUB_TOKEN" | docker login --username "$DOCKERHUB_USUARIO" --password-stdin
+
+                        docker push "$REFERENCIA"
+
+                        if [ "$PUBLICAR_LATEST" = "true" ]; then
+                            docker tag "$REFERENCIA" "$IMAGEM:latest"
+                            docker push "$IMAGEM:latest"
+                        else
+                            echo "latest não foi atualizada: o commit não é a ponta atual da main."
                         fi
-                        sleep 1
-                    done
 
-                    echo "A aplicação não respondeu. Últimas linhas do log:"
-                    tail -n 50 "$DEPLOY_DIR/app.log"
-                    exit 1
-                '''
+                        # Consulta o registro, e não a cópia local, para registrar o digest publicado.
+                        # Um --format que começa por {{.Manifest imprime o texto completo (Name, MediaType...);
+                        # o JSON traz o digest da referência no topo e os internos só em manifests[].
+                        MANIFESTO=$(docker buildx imagetools inspect "$REFERENCIA" --format '{{json .Manifest}}')
+                        DIGEST=$(printf '%s' "$MANIFESTO" | node -e 'let s = ""; process.stdin.on("data", (d) => { s += d; }).on("end", () => { process.stdout.write(String(JSON.parse(s).digest || "")); });')
+                        if ! printf '%s\\n' "$DIGEST" | grep -Eqx 'sha256:[0-9a-f]{64}'; then
+                            echo "Digest inválido lido do registro para $REFERENCIA: '$DIGEST'"
+                            exit 1
+                        fi
+                        printf 'referencia=%s\\ndigest=%s@%s\\nlatest=%s\\n' "$REFERENCIA" "$IMAGEM" "$DIGEST" "$PUBLICAR_LATEST" > imagem-publicada.txt
+                        cat imagem-publicada.txt
+                    '''
+                }
+
+                script {
+                    currentBuild.description = readFile('imagem-publicada.txt').trim().replace('\n', ' | ')
+                }
+            }
+        }
+
+        stage('Confirmar publicação') {
+            // Sem when: chamado pela pipeline, o job só termina verde com a prova da publicação.
+            steps {
+                script {
+                    if (env.CHAMADO_PELA_PIPELINE != 'true') {
+                        echo 'Execução manual: imagem construída e verificada, sem publicação.'
+                        return
+                    }
+                    if (!fileExists('imagem-publicada.txt')) {
+                        error 'Chamado pela pipeline-completa, mas imagem-publicada.txt não foi gerado: a imagem não foi publicada.'
+                    }
+                    def linhas = readFile('imagem-publicada.txt').readLines()
+                    def prefixoDigest = "digest=${env.IMAGEM}@sha256:".toString()
+                    def temReferencia = linhas.contains("referencia=${env.REFERENCIA}".toString())
+                    def temDigest = linhas.any { it.startsWith(prefixoDigest) && it.substring(prefixoDigest.length()) ==~ /[0-9a-f]{64}/ }
+                    if (!temReferencia || !temDigest) {
+                        error "imagem-publicada.txt não comprova a publicação de ${env.REFERENCIA}:\n${linhas.join('\n')}"
+                    }
+                    echo "Publicação comprovada: ${linhas.join(' | ')}"
+                }
             }
         }
     }
 
     post {
         always {
-            // O log acompanha o build e permite diagnosticar uma falha sem
-            // precisar entrar no contêiner do agente.
-            sh 'cp "$DEPLOY_DIR/app.log" app.log 2>/dev/null || true'
+            // Guarda os logs da aplicação para diagnóstico e apaga só os recursos desta verificação.
+            sh '''
+                docker logs "$VERIFICACAO" > verificacao.log 2>&1 || true
+                docker rm -f "$VERIFICACAO" > /dev/null 2>&1 || true
+                docker volume rm "$VERIFICACAO" > /dev/null 2>&1 || true
+            '''
 
             archiveArtifacts(
-                artifacts: 'app.log',
+                artifacts: 'verificacao.log, imagem-publicada.txt',
                 allowEmptyArchive: true
             )
         }

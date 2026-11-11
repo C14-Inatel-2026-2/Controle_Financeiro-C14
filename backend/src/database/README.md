@@ -4,7 +4,8 @@ Requer Node.js 22.13 ou superior com node:sqlite disponível (experimental no No
 Usa o SQLite incluído no Node, sem dependências adicionais.
 
 `abrirBanco()` abre `data/financeiro.sqlite` relativo à pasta em que o processo foi iniciado,
-habilita as chaves estrangeiras e aplica as migrations 1 e 2 uma única vez.
+habilita as chaves estrangeiras e aplica as migrations 1 a 5 uma única vez cada
+(usuários e movimentações, metas, importações de faturas, sessões e categorias).
 Passe um caminho absoluto para escolher outro local; `:memory:` é usado nos testes.
 Feche a conexão com `db.close()` ao encerrar a aplicação.
 
@@ -18,7 +19,8 @@ A tabela usuarios guarda somente senha_hash. A tabela sessoes (migration 4) guar
 o hash do token de cada login. Veja `docs/autenticacao.md`.
 O repositório recebe o ID da sessão autenticada: não aceite usuarioId vindo do cliente.
 Consultas SQL usam parâmetros. As movimentações retornadas usam valorEmCentavos,
-compatível com calcularSaldo. A importação de faturas ainda não está conectada ao banco.
+compatível com calcularSaldo. A confirmação de faturas grava os lançamentos como movimentações
+do usuário da sessão. As rotas HTTP de movimentações estão em `docs/categorias.md`.
 
 Metas são persistidas na tabela `metas` pela migration 2. Veja o
 [contrato da API e a regra de progresso da US05](../../../docs/us05-metas-financeiras.md).

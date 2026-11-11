@@ -110,7 +110,7 @@ pipelineJob('backend-build') {
 }
 
 pipelineJob('backend-deploy') {
-    description('Publica o backend aprovado numa pasta local do agente e reinicia a aplicação, preservando o SQLite.')
+    description('Constrói a imagem da aplicação no commit aprovado, verifica-a e, chamado pela pipeline completa, publica no Docker Hub.')
 
     parameters {
         stringParam('BRANCH', 'Branch-Donatto', 'Branch publicada no GitHub, sem origin/.')

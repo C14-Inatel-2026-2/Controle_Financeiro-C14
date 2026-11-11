@@ -1,88 +1,362 @@
-# Job de deploy local (backend-deploy)
+# Publicação da imagem no Docker Hub (backend-deploy)
 
-Publica a versão aprovada do backend numa pasta do agente e reinicia a
-aplicação, preservando o banco SQLite entre as atualizações.
+O job `backend-deploy` constrói uma imagem Docker com o frontend e a API, testa
+essa imagem num contêiner temporário e a publica no Docker Hub:
 
-- Pipeline: `backend/Jenkinsfile.deploy`
-- Job declarado em: `infra/jenkins/jobs.groovy`
-- Agente: `node24` (o mesmo dos demais jobs)
+- Imagem: [`bunnyzzw/controle-financeiro-c14`](https://hub.docker.com/r/bunnyzzw/controle-financeiro-c14)
+- Tag: o SHA completo do commit, por exemplo
+  `bunnyzzw/controle-financeiro-c14:3f2c…` (40 caracteres)
+- `latest`: atualizada só quando a branch é `main` e o commit ainda é a ponta dela
+- Pipeline: `backend/Jenkinsfile.deploy`; imagem: `Dockerfile` e `.dockerignore` na raiz
 - Chamado pelo estágio Deploy da [pipeline completa](../jenkins/README.md#5-executar-a-pipeline-completa),
-  somente depois de os builds e os testes passarem. Também pode ser executado
-  manualmente.
+  somente depois de os builds e os testes do mesmo SHA passarem
+
+Qualquer pessoa com Docker compatível com `linux/amd64` consegue baixar e
+executar a imagem, sem clonar o projeto e sem instalar Jenkins, Node ou npm.
+Veja o [guia rápido](#guia-rápido-executar-a-imagem-publicada).
+
+## Onde cada coisa roda
+
+- **Docker Hub** guarda e distribui a imagem. Ela continua disponível com o
+  computador do Caio desligado.
+- **A aplicação** roda no computador de quem inicia o contêiner. Cada
+  instalação tem o próprio banco, no próprio volume: dados de um computador não
+  aparecem em outro.
+- **O Jenkins** atual roda no PC do Caio e só executa pipelines com esse
+  computador ligado. Para publicar sem ele, veja
+  [Quem pode executar e publicar](../jenkins/README.md#quem-pode-executar-e-publicar).
+- **Endereço público do site:** o Docker Hub não hospeda a aplicação em
+  execução. Para alguém abrir o sistema pela internet, sem rodar o contêiner,
+  é preciso uma hospedagem adicional, que o projeto ainda não tem.
 
 ## O que o job faz, em ordem
 
-1. Limpa o workspace e baixa a revisão pedida: o commit recebido em
-   `GIT_COMMIT_SHA`, quando chamado pela pipeline, ou a ponta de `BRANCH`, na
-   execução manual com o valor padrão. Em seguida, confere que o `HEAD` é essa
-   revisão e falha se não for.
-2. `npm ci` no backend.
-3. `npm test` — é o que torna os arquivos "aprovados". Falhou, nada é publicado
-   e a versão que está no ar continua intacta.
-4. `npm run build` e conferência de que `dist/server.js` foi gerado.
-5. Publica `dist`, `package.json` e `package-lock.json` numa pasta nova e
-   instala apenas as dependências de produção (`npm ci --omit=dev`).
-6. Encerra o processo anterior, troca a pasta publicada e sobe a aplicação.
-7. Verifica `GET /health` antes de dar o build como bem-sucedido.
+1. Limpa o workspace e baixa a revisão pedida: o `GIT_COMMIT_SHA` recebido da
+   pipeline ou a ponta de `BRANCH`, na execução manual. Confere que o `HEAD` é
+   essa revisão e usa o SHA completo como tag.
+2. `docker version`: falha logo se o agente não alcança o Docker Desktop.
+3. `docker build --pull` com a tag do SHA e o label
+   `org.opencontainers.image.revision`.
+4. Verifica a imagem:
+   - `/app` tem somente `dist node_modules package.json public` e o usuário não é root;
+   - sobe um contêiner com um volume temporário e `COOKIE_SECURE=false` e executa
+     `infra/jenkins/verificar-imagem.js` dentro dele: `/health`, `/api/health`,
+     frontend em `/`, 404 em JSON para `/api/nao-existe`, cadastro, login,
+     cookie `HttpOnly` sem `Secure`, categorias e movimentações com e sem
+     categoria (401 sem sessão);
+   - recria o contêiner com o **mesmo volume** e a configuração padrão de
+     produção: o cadastro e a sessão anteriores continuam válidos, as
+     categorias e movimentações criadas antes continuam salvas e o cookie volta
+     a ter `Secure`.
+5. Publica no Docker Hub, **somente quando chamado pela pipeline completa**.
+   Uma execução manual do job para após a verificação.
+   - A tag do SHA é sempre publicada. `latest` só é atualizada quando
+     `BRANCH=main` **e** o SHA ainda é a ponta da `main` no momento da
+     publicação. Execuções em outras branches nunca mexem em `latest`.
+   - O login usa a credencial `dockerhub-credentials` com `withCredentials` e
+     `docker login --password-stdin`. O token não aparece no log.
+   - O login fica num `DOCKER_CONFIG` temporário desta execução, apagado ao
+     sair do script, inclusive em falha.
+   - Depois do `docker push`, o digest é lido do registro com
+     `docker buildx imagetools inspect` e gravado em `imagem-publicada.txt`
+     (artefato do build), também mostrado na descrição da execução.
+   - Chamado pela pipeline completa, o job falha se terminar sem
+     `imagem-publicada.txt` com a referência e o digest. A pipeline completa
+     confere de novo pela descrição do `backend-deploy` e falha se ela não os traz.
+6. Ao final, com sucesso ou falha, guarda os logs do contêiner em
+   `verificacao.log` e remove o contêiner e o volume temporários.
 
-## Pastas no agente
+Se qualquer job anterior falhar (build do frontend ou do backend, testes do
+frontend, unitários, integração ou cobertura), a pipeline para antes do Deploy
+e nada é publicado.
 
-```
-/home/jenkins/agent/deploy/controle-financeiro/
-├── app/           versão publicada (substituída a cada deploy)
-├── app.anterior/  versão anterior, mantida para conferência
-├── data/          banco SQLite — nunca é apagado
-├── app.pid        processo que está no ar
-└── app.log        saída da aplicação
-```
+## Guia rápido: executar a imagem publicada
 
-A preservação dos dados vem de um detalhe: a aplicação é iniciada com a pasta
-de deploy como diretório atual, e não com a `app/`. Como `abrirBanco()` usa o
-caminho relativo `data/financeiro.sqlite`, o banco cai sempre na mesma pasta
-`data/`, enquanto a `app/` pode ser trocada a cada deploy.
+Só é preciso o Docker Desktop. Os comandos são para PowerShell e podem ser
+executados em qualquer pasta. O exemplo usa a tag já publicada e comprovada
+(veja [Evidências registradas](#evidências-registradas)):
 
-A pasta fica dentro do volume `jenkins_agent_workdir` (com o nome de projeto
-`c14-ci`, o volume se chama `c14-ci_jenkins_agent_workdir`), então sobrevive ao
-reinício do contêiner do agente. Só é perdida se o volume for removido, por
-exemplo com `docker compose -f compose.jenkins.yaml down -v`.
+- Tag: `5060557ebf4a6ac645b440cf81386703898ec6f6`
+- Digest: `sha256:992615103d321f93dd9e8ef86aece8ee7a56eff828267575fc9c7dd393f19d3b`
 
-## Validação da persistência
+`latest` ainda não foi publicada: ela só aparece depois de uma pipeline na
+`main`. Use sempre a tag do SHA para saber exatamente qual versão está rodando.
 
-Validação manual realizada pela equipe em 17/10/2026, na branch
-`Branch-Donatto`:
+### 1. Conferir o Docker Desktop
 
-1. Com a aplicação já publicada por um deploy anterior, um registro fictício
-   foi criado na tabela `usuarios` de
-   `/home/jenkins/agent/deploy/controle-financeiro/data/financeiro.sqlite`,
-   usando `abrirBanco()` do código publicado em `app/dist`, executado com
-   `docker compose -f compose.jenkins.yaml exec agent-node-v2 node ...`.
-2. A `pipeline-completa` foi executada novamente com `BRANCH=Branch-Donatto` e
-   terminou em `SUCCESS`, publicando uma nova versão em `app/`.
-3. Depois do deploy, o registro foi consultado e manteve o mesmo id e o mesmo
-   nome.
-4. Em seguida, somente esse registro foi removido, filtrando pelos dados
-   fictícios. O comando confirmou 1 remoção.
-
-Isso valida que o arquivo SQLite em `data/` é preservado entre deploys: a troca
-de `app/` não apaga nem substitui o banco.
-
-A API publicada ainda não utiliza o banco: as rotas montadas são somente
-`GET /` e `GET /health`, e nenhuma delas chama `abrirBanco()`. Por isso, o
-registro foi escrito diretamente no arquivo, e cadastro e persistência pela API
-não foram validados. Essa validação deve ser repetida quando as rotas passarem a
-usar o SQLite.
-
-## Como ver a aplicação pelo navegador (opcional)
-
-A aplicação sobe dentro do contêiner do agente, que não publica portas. Para
-abri-la no Windows, acrescente ao serviço `agent-node-v2` do
-`compose.jenkins.yaml`:
-
-```yaml
-    ports:
-      # Expõe a aplicação publicada pelo deploy: Windows 3001 -> contêiner 3000.
-      - "127.0.0.1:3001:3000"
+```powershell
+docker version
+docker info --format '{{.OSType}}/{{.Architecture}}'
 ```
 
-Depois `docker compose -f compose.jenkins.yaml up -d` e acesse
-`http://localhost:3001/health`.
+O primeiro comando precisa mostrar **Client** e **Server**. Sem o Server, abra o
+Docker Desktop e espere iniciar. O segundo deve mostrar `linux/x86_64`. A imagem
+só tem a plataforma `linux/amd64`.
+
+### 2. Baixar a imagem pela tag do SHA
+
+```powershell
+$IMAGEM = "bunnyzzw/controle-financeiro-c14:5060557ebf4a6ac645b440cf81386703898ec6f6"
+docker pull $IMAGEM
+```
+
+A última linha do `docker pull` mostra o `Digest`, que deve ser o digest acima.
+
+### 3. Iniciar o contêiner
+
+```powershell
+# Uma vez só: o volume guarda o banco SQLite (/data/financeiro.sqlite).
+docker volume create controle-financeiro-dados
+
+docker run -d --name controle-financeiro `
+  -p 127.0.0.1:3000:3000 `
+  -v controle-financeiro-dados:/data `
+  -e COOKIE_SECURE=false `
+  $IMAGEM
+```
+
+- `127.0.0.1:3000:3000` publica a porta só para este computador, e não para a
+  rede.
+- `COOKIE_SECURE=false` é necessário porque o acesso é por HTTP. Sem ele, o login
+  pela API funciona, mas o navegador não devolve o cookie (veja
+  [Cookie da sessão por HTTP](#cookie-da-sessão-por-http)).
+
+### 4. Abrir e conferir
+
+```powershell
+docker ps --filter "name=^controle-financeiro$"
+Invoke-RestMethod http://localhost:3000/health     # status: ok
+Start-Process http://localhost:3000
+```
+
+O status deve ficar `(healthy)` alguns segundos depois de iniciar. A API também
+responde em `http://localhost:3000/api/...`. As rotas sem o prefixo, como
+`/health`, continuam funcionando.
+
+### 5. Parar e iniciar de novo
+
+```powershell
+docker stop controle-financeiro
+docker start controle-financeiro
+```
+
+`stop` e `start` reaproveitam o mesmo contêiner, e os dados continuam no volume.
+Não repita o `docker run` para um contêiner que já existe.
+
+### 6. Atualizar para outra tag sem perder os dados
+
+```powershell
+$IMAGEM = "bunnyzzw/controle-financeiro-c14:<SHA-completo-da-nova-versão>"
+docker pull $IMAGEM
+
+# Remove só o contêiner. O volume e o banco continuam.
+docker rm -f controle-financeiro
+
+docker run -d --name controle-financeiro `
+  -p 127.0.0.1:3000:3000 `
+  -v controle-financeiro-dados:/data `
+  -e COOKIE_SECURE=false `
+  $IMAGEM
+```
+
+As migrations do banco são aplicadas sozinhas na primeira execução da versão
+nova. Prefira sempre avançar: voltar para uma tag mais antiga com um banco já
+migrado não foi testado.
+
+### 7. Conflito de nome ou de porta
+
+| Mensagem | O que fazer |
+| --- | --- |
+| `Conflict. The container name "/controle-financeiro" is already in use` | O contêiner já existe. Use `docker start controle-financeiro`, ou siga o passo 6 para trocar a imagem. |
+| `Bind for 127.0.0.1:3000 failed: port is already allocated` | Outro programa usa a porta. Neste caso o Docker cria o contêiner novo, mas não o inicia: remova-o com `docker rm controle-financeiro` antes de tentar de novo. |
+
+Para descobrir quem ocupa a porta 3000:
+
+```powershell
+docker ps --filter "publish=3000"
+Get-NetTCPConnection -LocalPort 3000 -State Listen | ForEach-Object { Get-Process -Id $_.OwningProcess }
+```
+
+Se a porta for de outro programa, use outra porta só do lado do Windows, por
+exemplo `-p 127.0.0.1:3001:3000`, e abra `http://localhost:3001`.
+
+### 8. Apagar tudo
+
+```powershell
+docker rm -f controle-financeiro
+docker volume rm controle-financeiro-dados   # APAGA o banco: contas, categorias e lançamentos
+```
+
+Remover só o contêiner não apaga nada. **Remover o volume apaga o banco
+definitivamente.**
+
+### Limitações para quem for demonstrar
+
+Na tag `5060557…`:
+
+- **Funciona na interface:** página inicial, cadastro de conta (grava no banco) e
+  prévia de faturas CSV e PDF do Itaú.
+- **A tela de login não chama a API.** Ela só confere se os campos foram
+  preenchidos e libera a navegação, sem criar sessão. Por isso:
+  - a tela de categorias mostra "Faça login para ver suas categorias.";
+  - confirmar uma importação de fatura responde 401.
+- **Dashboard e Home** mostram dados de exemplo fixos, e não os do banco.
+- **Movimentações** não existem nessa tag (`/api/movimentacoes` responde 404).
+  Elas entram na próxima imagem, que sai do merge com o trabalho do Igor. Nem
+  essa imagem terá uma tela de movimentações: o acesso é só pela API.
+
+Contorno para demonstrar categorias e a confirmação de faturas, sem alterar o
+código: depois de criar a conta pela tela, abra o console do navegador (F12 →
+Console) em `http://localhost:3000` e entre pela API. O cookie fica guardado
+para as telas seguintes:
+
+```javascript
+await fetch("/api/auth/login", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ email: "seu-email@example.test", senha: "sua-senha" }),
+}).then((resposta) => resposta.status)   // 200 = sessão criada
+```
+
+Apresente isso como um contorno: o login pela tela ainda é uma pendência
+([autenticação](../autenticacao.md#pendente-login-pela-tela)).
+
+### Configuração da imagem
+
+| Variável | Padrão na imagem | Uso |
+| --- | --- | --- |
+| `PORT` | `3000` | Porta da aplicação dentro do contêiner. Sem a variável, o servidor também usa 3000. |
+| `DATABASE_PATH` | `/data/financeiro.sqlite` | Arquivo do SQLite. `/data` é o ponto de montagem do volume. |
+| `FRONTEND_DIR` | `/app/public` | Frontend compilado, servido na mesma origem da API. |
+| `NODE_ENV` | `production` | Mantido em produção também no teste por HTTP. |
+| `COOKIE_SECURE` | (não definida) | `true` ou `false` explícito. Sem ela, vale `NODE_ENV=production`, ou seja, `Secure`. Qualquer outro valor impede a aplicação de subir. |
+
+O contêiner roda como o usuário `node` (uid 1000). A pasta `/data` da imagem
+pertence a ele, e um volume nomeado novo herda esse dono na primeira
+montagem, então o SQLite consegue gravar o banco e o arquivo de journal. Prefira
+volume nomeado: uma pasta do Windows montada com `-v C:\...:/data` não segue
+essas permissões.
+
+### Cookie da sessão por HTTP
+
+Em produção o cookie `sessao` é `Secure`, e o navegador só o envia por HTTPS.
+O teste local é por `http://localhost`, então use **`COOKIE_SECURE=false`**,
+como nos comandos do guia rápido. A imagem continua com `NODE_ENV=production`. Ao
+publicar atrás de HTTPS, não defina `COOKIE_SECURE`, ou use `true`. A
+verificação do Jenkins testa as duas configurações.
+
+## Acesso do agente ao Docker
+
+O agente usa a CLI do Docker e o plugin `buildx`, instalados em
+`infra/jenkins/agent/Dockerfile`, e fala com o **Docker Desktop do próprio
+computador** pelo socket `/var/run/docker.sock`, montado em
+`compose.jenkins.yaml`. Não há um segundo daemon nem contêiner privilegiado.
+
+Esse acesso equivale a ter controle total do Docker Desktop: um job pode criar,
+parar ou apagar qualquer contêiner, imagem ou volume da máquina, inclusive os
+do Jenkins. Isso é aceitável aqui porque o Jenkins é local, só escuta em
+`127.0.0.1:8081` e executa apenas o código do repositório do grupo. Não exponha
+a porta do Jenkins na rede e não execute branches de origem desconhecida.
+
+O usuário `jenkins` do agente acessa o socket pelo grupo dono dele, adicionado
+com `group_add`. No Docker Desktop esse grupo costuma ser `0`, o padrão. Se o
+grupo for outro, crie na raiz do repositório um arquivo `.env`, já ignorado
+pelo Git, com `DOCKER_SOCKET_GID=<número>`.
+
+### Preparar o Docker Desktop no Windows
+
+Na raiz do repositório, com o Docker Desktop aberto:
+
+```powershell
+# 1. Confere o Compose sem subir nada.
+docker compose -f compose.jenkins.yaml config --quiet
+
+# 2. Reconstrói as duas imagens e recria só o que mudou.
+#    Os volumes jenkins_home e jenkins_agent_workdir e o arquivo
+#    .secrets/jenkins-agent-secret.txt são preservados.
+docker compose -f compose.jenkins.yaml up -d --build
+
+# 3. O agente precisa enxergar o Docker Desktop.
+docker compose -f compose.jenkins.yaml exec agent-node-v2 docker version
+```
+
+O passo 3 deve mostrar as seções **Client** e **Server**. Se aparecer
+`permission denied` no socket:
+
+```powershell
+docker compose -f compose.jenkins.yaml exec agent-node-v2 ls -ln /var/run/docker.sock
+docker compose -f compose.jenkins.yaml exec agent-node-v2 id
+```
+
+Coloque o número do grupo do socket (a quarta coluna do `ls -ln`) em
+`DOCKER_SOCKET_GID` no `.env` e repita o passo 2. Para isso funcionar, o
+`ls -ln` precisa mostrar permissão de escrita para o grupo (`srw-rw----`).
+
+Nunca use `docker compose ... down -v`: a opção `-v` apaga os volumes do
+Jenkins.
+
+### Credencial do Docker Hub
+
+1. No Docker Hub, em **Account settings → Personal access tokens**, gere um
+   token com permissão **Read & Write**. Copie o token, que só é mostrado uma vez.
+2. No Jenkins, em **Gerenciar Jenkins → Credentials → System → Global
+   credentials → Add Credentials**:
+   - Kind: **Username with password**
+   - Username: `bunnyzzw`
+   - Password: o token do passo 1, não a senha da conta
+   - ID: **`dockerhub-credentials`**
+   - Description: Docker Hub — publicação da imagem
+3. Salve. O token fica só no Jenkins: não o coloque no repositório, no `.env`
+   nem em mensagens.
+
+## Evidências registradas
+
+### Publicação comprovada do commit `5060557`
+
+Execução no Jenkins do PC do Caio, na `Branch-Caio`, **antes** da integração
+das movimentações do Igor (PR #34):
+
+| Item | Registro |
+| --- | --- |
+| Pipeline | `pipeline-completa` #3: `SUCCESS` |
+| Deploy | `backend-deploy` #3: `SUCCESS`, com a mensagem `Publicação comprovada` |
+| Commit | `5060557ebf4a6ac645b440cf81386703898ec6f6` |
+| Imagem | `bunnyzzw/controle-financeiro-c14:5060557ebf4a6ac645b440cf81386703898ec6f6` |
+| Digest | `sha256:992615103d321f93dd9e8ef86aece8ee7a56eff828267575fc9c7dd393f19d3b` |
+| Artefatos | `imagem-publicada.txt` e `verificacao.log` |
+| Conferência fora do Jenkins | `docker pull` feito pelo Caio mostrou o mesmo digest. Em 10/11/2026, `docker buildx imagetools inspect` também mostrou esse digest, com a plataforma `linux/amd64`. |
+
+A verificação daquele deploy conferiu o frontend, `/health`, `/api/health`, o
+404 da API, cadastro, login, cookies e categorias. Depois recriou o contêiner
+com o mesmo volume e confirmou que usuário, sessão e categorias foram
+preservados.
+
+Essa evidência vale **só para o commit `5060557`**. Ela não cobre as
+movimentações, que entraram depois.
+
+### Pendente
+
+1. **Integração com as movimentações:** executar a `pipeline-completa` de novo
+   na `Branch-Caio`, depois do commit do merge com a `main`. O deploy dessa
+   execução passa a verificar também as movimentações.
+2. **Depois do merge do PR na `main`:** executar a `pipeline-completa` com
+   `BRANCH=main`. É essa execução que publica `latest`, se o SHA ainda for a
+   ponta da `main`.
+
+Ao registrar cada execução, anote o número da pipeline e do deploy, o commit, a
+referência e o digest de `imagem-publicada.txt`.
+
+## Versão anterior: deploy em pasta do agente
+
+Até esta mudança, o `backend-deploy` copiava o backend para
+`/home/jenkins/agent/deploy/controle-financeiro/` e subia `node` dentro do
+contêiner do agente. Esse caminho saiu da pipeline. Uma aplicação antiga ainda
+em execução termina quando o contêiner do agente é recriado. A pasta continua
+no volume `c14-ci_jenkins_agent_workdir` e pode ser removida manualmente
+quando não for mais necessária.
+
+Validação manual registrada em 17/10/2026, na branch `Branch-Donatto`, com
+aquele deploy: um registro fictício criado diretamente no SQLite publicado
+manteve o mesmo id e o mesmo nome após uma nova execução da
+`pipeline-completa`, e depois foi removido. Na época, a API publicada ainda não
+usava o banco.

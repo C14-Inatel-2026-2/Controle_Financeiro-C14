@@ -1,0 +1,27 @@
+# Só frontend/ e backend/ entram no build; o resto do repositório fica de fora.
+*
+!frontend/
+!backend/
+
+# Instalações e saídas geradas no computador: a imagem instala e compila do zero.
+**/node_modules
+**/dist
+**/coverage
+**/reports
+
+# Bancos locais, segredos e configurações de ambiente.
+**/data
+**/*.sqlite
+**/*.sqlite-*
+**/.env
+**/.env.*
+**/.secrets
+**/*.pem
+**/*.key
+
+# Arquivos do Git, do editor e da CI, que a aplicação não usa.
+**/.git
+**/.gitignore
+**/.vscode
+**/Jenkinsfile*
+**/*.log
