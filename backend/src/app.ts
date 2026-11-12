@@ -9,11 +9,13 @@ import { InvoiceImportWorkflow } from "./features/invoice-import/application/inv
 import { createDefaultInvoiceImportService } from "./features/invoice-import/index.js";
 import type { InvoiceIdentity } from "./controllers/createInvoiceController.js";
 import { createAuthRouter, type Autenticacao } from "./routes/authRoutes.js";
-import { carregarSessao } from "./middlewares/sessao.js";
+import { carregarSessao, exigirSessao } from "./middlewares/sessao.js";
 import { tratarErrosDaApi } from "./middlewares/tratarErrosDaApi.js";
 import { createCategoryRouter, type CategoriasDoUsuario } from "./routes/categoryRoutes.js";
 
 import { criarRouterMovimentacoes, type RepositorioMovimentacoes } from "./routes/movimentacoes.js";
+
+import { mesAtual, resumir } from "./services/resumo.js";
 
 interface AppDependencies {
   movimentacoes?: RepositorioMovimentacoes;
@@ -46,6 +48,14 @@ export function createApp({
   // Depois de carregarSessao e express.json: as rotas exigem a sessão e leem o corpo JSON.
   if (movimentacoes) {
     api.use("/movimentacoes", criarRouterMovimentacoes(movimentacoes));
+  }
+
+  if (movimentacoes && categoriasDoUsuario) {
+    api.get("/resumo", exigirSessao, async (req, res) => {
+      const id = req.usuario!.id;
+      const categorias = await categoriasDoUsuario(id).list();
+      res.json(resumir(movimentacoes.listar(id), categorias, mesAtual()));
+    });
   }
 
   if (autenticacao) {
