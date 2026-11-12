@@ -20,6 +20,7 @@ type Props = PropsDaSessao & {
 const MENU: { tela: Tela; rotulo: string }[] = [
   { tela: "importacao", rotulo: "Importar fatura" },
   { tela: "home", rotulo: "Início" },
+  { tela: "movimentacoes", rotulo: "Lançamentos" },
   { tela: "dashboard", rotulo: "Dashboard" },
   { tela: "categorias", rotulo: "Categorias" },
 ];

@@ -21,6 +21,10 @@ it("retorna 70 reais para uma conta e zero para a outra", async () => {
     }
     const resposta = await api.get("/api/resumo").set("Cookie", ana).expect(200);
     expect(resposta.body).toMatchObject({ saldoEmCentavos: 7000, receitasEmCentavos: 10000, despesasEmCentavos: 3000 });
+    const anterior = mes === "2000-01" ? "1999-12" : "2000-01";
+    const filtrado = await api.get("/api/resumo?mes=" + anterior).set("Cookie", ana).expect(200);
+    expect(filtrado.body).toMatchObject({ mes: anterior, saldoEmCentavos: 7000, receitasEmCentavos: 0, despesasEmCentavos: 0, gastosPorCategoria: [] });
+    await api.get("/api/resumo?mes=2026-13").set("Cookie", ana).expect(400);
     expect(resposta.body.ultimosLancamentos).toHaveLength(2);
     await api.get("/api/resumo?usuarioId=1").set("Cookie", bia).expect(200, {
       mes, saldoEmCentavos: 0, receitasEmCentavos: 0, despesasEmCentavos: 0, gastosPorCategoria: [], ultimosLancamentos: [],

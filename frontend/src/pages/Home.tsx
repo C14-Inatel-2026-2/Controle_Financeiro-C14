@@ -25,7 +25,7 @@ const ATALHOS: {
   {
     titulo: "Lançamentos",
     descricao: "Suas receitas e despesas",
-    destino: null,
+    destino: "movimentacoes",
     icone: (
       <path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
     ),
