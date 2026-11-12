@@ -1,4 +1,3 @@
-import { useRef } from "react";
 import { Topo, type PropsDaSessao } from "../components/Topo";
 import type { Tela } from "../navegacao";
 import { primeiroNome } from "../utils/nomeDoUsuario";
@@ -7,7 +6,7 @@ type Props = PropsDaSessao & {
   aoNavegar: (tela: Tela) => void;
 };
 
-// Atalhos do carrossel. Os que ainda não têm tela levam o destino nulo.
+// Atalhos da Home, numa faixa com rolagem horizontal. Os que ainda não têm tela levam o destino nulo.
 const ATALHOS: {
   titulo: string;
   descricao: string;
@@ -63,13 +62,6 @@ const ATALHOS: {
 ];
 
 export function Home({ aoNavegar, usuario, aoSair }: Props) {
-  // A referência aponta para a faixa de cards, para as setas rolarem ela.
-  const faixa = useRef<HTMLDivElement>(null);
-
-  function rolar(quanto: number) {
-    faixa.current?.scrollBy({ left: quanto, behavior: "smooth" });
-  }
-
   return (
     <div className="ap-tela">
       <Topo ativo="home" aoNavegar={aoNavegar} usuario={usuario} aoSair={aoSair} />
@@ -80,21 +72,9 @@ export function Home({ aoNavegar, usuario, aoSair }: Props) {
 
         <div className="ap-cabecalho-secao">
           <h2>Atalhos</h2>
-          <div className="ap-setas">
-            <button className="ap-seta" onClick={() => rolar(-280)} aria-label="Anterior">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                <path d="M15 6l-6 6 6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </button>
-            <button className="ap-seta ap-seta-ativa" onClick={() => rolar(280)} aria-label="Próximo">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                <path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </button>
-          </div>
         </div>
 
-        <div className="ap-faixa" ref={faixa}>
+        <div className="ap-faixa">
           {ATALHOS.map((atalho) => (
             <button
               key={atalho.titulo}
