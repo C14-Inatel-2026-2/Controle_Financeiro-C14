@@ -357,23 +357,36 @@ Registre a data, o SHA da imagem e o resultado em [Evidências registradas](#evi
 
 ### Publicar uma versão nova
 
-O caminho até o site:
+O caminho de uma mudança até o site:
 
-1. **Push no GitHub não atualiza o site sozinho.** Não há gatilho GitHub → Jenkins
-   para a `main`: alguém precisa iniciar a `pipeline-completa` com `BRANCH=main`.
-   Isso só passa a ser automático depois que um gatilho for configurado e
-   validado.
-2. A `pipeline-completa` roda builds, testes e o `backend-deploy`, que publica a
-   imagem do SHA (e `latest`, na `main`) e comprova a publicação com o digest.
-3. **Estágio Atualizar Render** (só com `BRANCH=main`): o Jenkins confere de novo
+1. **PR para a `main`:** o job `pr-validacao` testa a mescla do PR com a `main`
+   e publica o status no GitHub ([validação de PRs](../jenkins/validacao-pr.md)).
+2. **Review e merge** no GitHub, feitos pelo grupo.
+3. **Polling da `main`:** o job `gatilho-main` consulta a `main` a cada 2 minutos.
+   Quando há commit novo, inicia a `pipeline-completa` com `BRANCH=main`. Um
+   push em outra branch não inicia nada. Veja
+   [Gatilho automático da main](../jenkins/README.md#gatilho-automático-da-main-gatilho-main).
+4. **`pipeline-completa`:** resolve o SHA atual da `main` e roda builds, testes e
+   o `backend-deploy`, que publica a imagem do SHA e `latest` no Docker Hub e
+   comprova a publicação com o digest.
+5. **Estágio Atualizar Render** (só com `BRANCH=main`): o Jenkins confere de novo
    se o SHA aprovado ainda é a ponta da `main` e pede ao Render o deploy da
    imagem exata, pelo digest:
    `imgURL=docker.io/bunnyzzw/controle-financeiro-c14@sha256:<digest>`. O pedido
    usa a credencial `render-deploy-hook` e o script
    [solicitar-deploy-render.js](../../infra/jenkins/solicitar-deploy-render.js).
-4. **Confira no Render** (*Events*) se o deploy ficou **Live** com esse digest.
-   O Jenkins só registra que o Render **aceitou** o pedido. Um `/health` que
-   responde pode ainda ser da versão anterior.
+6. **Render aceitou ≠ Live.** O Jenkins só registra que o Render **aceitou** o
+   pedido (HTTP 200 ou 202). Confira no Render (*Events*) se o deploy ficou
+   **Live** com esse digest. Um `/health` que responde pode ainda ser da versão
+   anterior.
+
+Do merge ao pedido para o Render passam cerca de 2 minutos até o polling, mais o
+tempo da pipeline. Para isso funcionar, **o PC do Caio precisa estar ligado e
+com internet, com o Docker Desktop e os contêineres `jenkins` e `agent-node-v2`
+rodando**. A aba do navegador com o Jenkins pode ficar fechada. Com o PC
+desligado, o site continua no ar no Render, mas não recebe versões novas. Quando
+o Jenkins volta, o primeiro polling encontra a `main` nova e inicia a pipeline.
+Um commit feito enquanto ele estava parado não se perde.
 
 O que cada situação faz:
 
@@ -566,13 +579,16 @@ movimentações, que entraram depois.
    `BRANCH=main`. É essa execução que publica `latest`, se o SHA ainda for a
    ponta da `main`.
 
-3. **Atualização automática do Render:** depois do merge, executar a
-   `pipeline-completa` com `BRANCH=main` e registrar o número da execução, o
-   digest, o id `dep-…` de `deploy-render.txt` e a confirmação, no painel do
-   Render, de que esse digest ficou **Live**. Até lá, o estágio só foi testado
-   com respostas simuladas, sem acionar o hook real.
-4. **Gatilho GitHub → Jenkins:** não existe. Iniciar a pipeline da `main`
-   continua manual.
+3. **Atualização automática do Render:** segundo o Caio, a `pipeline-completa`
+   da `main`, depois do PR #48, passou e o Render respondeu HTTP 200. Falta
+   registrar aqui o número da execução, o digest, o id `dep-…` de
+   `deploy-render.txt` e a confirmação, no painel do Render, de que esse digest
+   ficou **Live**.
+4. **Gatilho GitHub → Jenkins (`gatilho-main`):** validado só num Jenkins
+   descartável, com repositório local e uma `pipeline-completa` falsa. Depois do
+   merge, aplicar o job, registrar a primeira execução e comprovar que um commit
+   na `main` inicia a `pipeline-completa` sozinho
+   ([roteiro](../jenkins/README.md#gatilho-automático-da-main-gatilho-main)).
 
 Ao registrar cada execução, anote o número da pipeline e do deploy, o commit, a
 referência e o digest de `imagem-publicada.txt`.

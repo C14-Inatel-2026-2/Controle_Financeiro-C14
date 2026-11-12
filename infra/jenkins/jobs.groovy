@@ -186,6 +186,49 @@ pipelineJob('pipeline-completa') {
     }
 }
 
+// Gatilho da produção: consulta a main do GitHub a cada 2 minutos e, quando há commit novo,
+// inicia a pipeline-completa com BRANCH=main. Polling, e não webhook: este Jenkins local
+// não é acessível pela internet.
+// - O SCM é fixo em refs/heads/main. O da pipeline-completa usa ${BRANCH}, e o polling de um
+//   Pipeline segue os parâmetros da última execução; por isso o gatilho fica num job próprio.
+// - H/2 só verifica a main; sem commit novo, nenhuma execução é criada.
+// - O Jenkinsfile deste job não chama properties(), que apagaria o gatilho declarado aqui.
+// - A primeira execução, manual ou do polling, só registra a main como referência.
+pipelineJob('gatilho-main') {
+    description('Consulta a main do GitHub a cada 2 minutos e, quando há commit novo, inicia a pipeline-completa com BRANCH=main. Sem parâmetros: o alvo é sempre a main. Uma execução manual só registra a referência do polling.')
+
+    properties {
+        disableConcurrentBuilds()
+        pipelineTriggers {
+            triggers {
+                pollSCM {
+                    scmpoll_spec('H/2 * * * *')
+                }
+            }
+        }
+    }
+
+    logRotator {
+        numToKeep(20)
+    }
+
+    definition {
+        cpsScm {
+            scm {
+                git {
+                    remote {
+                        url('https://github.com/C14-Inatel-2026-2/Controle_Financeiro-C14.git')
+                    }
+                    branch('refs/heads/main')
+                }
+            }
+            scriptPath('infra/jenkins/Jenkinsfile.gatilho-main')
+            // Checkout completo: registra a main nesta execução, que é o que o polling compara.
+            lightweight(false)
+        }
+    }
+}
+
 // Validação de PRs para a main. O Jenkins consulta o GitHub periodicamente:
 // não depende de webhook nem expõe este Jenkins local à internet.
 multibranchPipelineJob('pr-validacao') {

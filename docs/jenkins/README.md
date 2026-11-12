@@ -232,7 +232,7 @@ O job `pipeline-completa`, definido pelo [Jenkinsfile](../../Jenkinsfile) da rai
 
 Um estágio só começa se o anterior terminou com sucesso. Se qualquer job falhar, a pipeline termina em `FAILURE` e os estágios seguintes, inclusive o Deploy, não são executados. Dentro de um estágio paralelo, o outro job continua até o fim, para que os dois resultados fiquem registrados.
 
-A pipeline também é manual: não há gatilho por push ou PR. Um push na `main` não atualiza o site; o Render só é atualizado quando alguém executa a `pipeline-completa` com `BRANCH=main` e ela termina o estágio Atualizar Render.
+Para a `main`, a pipeline é iniciada sozinha pelo [gatilho da main](#gatilho-automático-da-main-gatilho-main), cerca de 2 minutos depois de um commit novo. Para outras branches, ela continua manual: um push numa branch não inicia nada, e uma execução manual com outra branch nunca atualiza o site. O Render só é atualizado quando a `pipeline-completa` com `BRANCH=main` termina o estágio Atualizar Render.
 
 ### Pré-requisitos
 
@@ -273,6 +273,66 @@ Os cinco jobs continuam podendo ser executados sozinhos. Na execução manual:
 
 A substituição de `${BRANCH}` dentro do valor de `GIT_COMMIT_SHA` depende de o plugin Git expandir variáveis duas vezes ao escolher a revisão, comportamento confirmado no código da versão `git:5.10.1`, fixada em [plugins.txt](../../infra/jenkins/plugins.txt). Ao atualizar o plugin, repita uma execução manual sem SHA e uma execução da pipeline.
 
+### Gatilho automático da main (`gatilho-main`)
+
+O job `gatilho-main` ([jobs.groovy](../../infra/jenkins/jobs.groovy) e
+[Jenkinsfile.gatilho-main](../../infra/jenkins/Jenkinsfile.gatilho-main)) consulta
+a `main` do GitHub a cada 2 minutos (polling SCM `H/2 * * * *`). Não usa webhook:
+o GitHub não alcança este Jenkins local.
+
+- **Com commit novo na `main`:** inicia a `pipeline-completa` com `BRANCH=main`.
+  Ela resolve o SHA atual e segue o fluxo de sempre, até o pedido ao Render.
+- **Sem commit novo:** o polling só registra "No changes", sem criar execução.
+- **Commits em outras branches** não iniciam nada. O SCM do gatilho é fixo em
+  `refs/heads/main`. Execuções manuais da `pipeline-completa` com outra branch
+  continuam possíveis e não mudam o alvo do polling.
+- **Por que um job separado:** o SCM da `pipeline-completa` usa `${BRANCH}`, e o
+  polling de um Pipeline segue os parâmetros da última execução. Um polling na
+  própria `pipeline-completa` passaria a vigiar a branch do último teste manual.
+  Além disso, o `properties()` do Jenkinsfile dela apagaria o gatilho.
+- **Sem executor:** o gatilho roda no controlador e não ocupa o agente. A
+  `pipeline-completa` continua serializada. Pedidos iguais na fila são unidos, e
+  ela confere de novo a ponta da `main` antes do Render.
+- **Primeira execução:** sem execução anterior, o Jenkins trata o primeiro
+  polling como mudança. Por isso, a primeira execução do gatilho, manual ou do
+  polling, **só registra a `main` atual como referência**, sem iniciar a pipeline.
+  Uma execução manual do gatilho também só registra.
+
+**Aplicar** (depois do merge, com a branch atualizada):
+
+```powershell
+docker compose -f compose.jenkins.yaml up -d --build jenkins
+```
+
+Isso reconstrói o controlador com o `jobs.groovy` novo e preserva o volume. Espere
+os builds em andamento terminarem antes. Não é preciso recriar o agente.
+
+**Primeira execução:** em **gatilho-main → Build Now**. A execução deve terminar
+com a descrição "referência do polling registrada", sem iniciar a
+`pipeline-completa`. Se o polling chegar antes, ele faz o mesmo sozinho.
+
+**Verificar o polling:** em **gatilho-main → Git Polling Log** aparecem a hora da
+última consulta, o SHA da `main` e "No changes" ou "Changes found". Depois de um
+merge, em até ~2 minutos surge uma execução "Started by an SCM change" com a
+descrição "pipeline-completa da main solicitada", e a `pipeline-completa` mostra
+"Started by upstream project gatilho-main".
+
+**Desativar:**
+
+- **Temporariamente:** **gatilho-main → Disable Project**. Volta a ficar ativo
+  quando o Jenkins reaplicar o `jobs.groovy`, por exemplo ao recriar o controlador.
+- **De forma permanente:** remova o bloco `pipelineTriggers` do `gatilho-main` em
+  `jobs.groovy` e aplique como acima.
+- Em ambos os casos, a `pipeline-completa` manual continua funcionando.
+
+**Limitações:**
+
+- Só funciona com o PC do Caio, a internet, o Docker Desktop e os dois
+  contêineres ligados. A aba do navegador pode ficar fechada.
+- Se uma execução do gatilho falhar ao consultar o GitHub, a seguinte pode iniciar
+  a `pipeline-completa` mesmo sem commit novo. O resultado é um novo deploy do
+  mesmo SHA.
+
 ### Validações registradas
 
 Validações manuais realizadas pela equipe em 17/10/2026, numa instância local já existente:
@@ -311,7 +371,7 @@ Ainda não foram realizados:
 
 - **Integração com as movimentações:** nova execução na `Branch-Caio` depois do merge com a `main` e, após o merge do PR, uma execução na `main`, a única que publica `latest`.
 - **Instância limpa:** confirmar que uma instalação nova, construída a partir da `main`, cria os seis jobs com os parâmetros e plugins necessários.
-- **Gatilhos automáticos:** a pipeline e os jobs continuam sendo executados manualmente.
+- **Gatilho da main no Jenkins real:** aplicar o `gatilho-main`, registrar a primeira execução e comprovar que um merge na `main` inicia a `pipeline-completa`. Até agora, só foi validado num Jenkins descartável (veja o guia do deploy, em Pendente).
 
 ## 6. Uso diário
 
@@ -341,7 +401,7 @@ docker compose -f compose.jenkins.yaml stop
 
 Esse comando para os contêineres sem removê-los. Os volumes preservam usuários, configurações, histórico e artefatos ainda retidos pelo Jenkins. O pipeline limita o histórico a dez execuções; não use o Jenkins como único armazenamento de evidências necessárias para a entrega.
 
-Não use `docker compose down -v` para encerrar o trabalho: a opção `-v` remove os volumes do projeto e pode apagar os dados da instalação. Não é necessário manter os contêineres ligados entre as sessões. Enquanto estiverem parados, novos commits, pushes ou PRs não iniciarão builds; nenhum job do projeto possui gatilhos automáticos.
+Não use `docker compose down -v` para encerrar o trabalho: a opção `-v` remove os volumes do projeto e pode apagar os dados da instalação. Não é necessário manter os contêineres ligados entre as sessões. Enquanto estiverem parados, novos commits, pushes ou PRs não iniciam builds. Ao religar, o `gatilho-main` e o `pr-validacao` consultam o GitHub e processam o que mudou nesse intervalo.
 
 ### Aplicar atualizações do ambiente
 
@@ -365,7 +425,8 @@ Mudanças apenas no código ou nos Jenkinsfiles não exigem reconstruir o ambien
 | [infra/jenkins/Dockerfile](../../infra/jenkins/Dockerfile) | Constrói a imagem do controlador com plugins e arquivos de configuração. |
 | [infra/jenkins/plugins.txt](../../infra/jenkins/plugins.txt) | Define os plugins e suas versões. |
 | [infra/jenkins/jenkins.yaml](../../infra/jenkins/jenkins.yaml) | Aplica as configurações do Jenkins por JCasC e carrega os jobs. |
-| [infra/jenkins/jobs.groovy](../../infra/jenkins/jobs.groovy) | Cria os seis jobs manuais, com os parâmetros `BRANCH` e, nos cinco jobs chamados pela pipeline, `GIT_COMMIT_SHA`, e o job `pr-validacao`, que valida os PRs sozinho. |
+| [infra/jenkins/jobs.groovy](../../infra/jenkins/jobs.groovy) | Cria os seis jobs manuais, com os parâmetros `BRANCH` e, nos cinco jobs chamados pela pipeline, `GIT_COMMIT_SHA`; o `gatilho-main`, que inicia a pipeline quando a `main` muda; e o `pr-validacao`, que valida os PRs sozinho. |
+| [infra/jenkins/Jenkinsfile.gatilho-main](../../infra/jenkins/Jenkinsfile.gatilho-main) | Inicia a `pipeline-completa` com `BRANCH=main` quando o polling encontra commit novo; na primeira execução ou numa execução manual, só registra a referência. |
 | [Jenkinsfile.pr](../../Jenkinsfile.pr) | Define a validação de PRs: builds e testes da mescla do PR com a `main`, sem deploy. Veja a [validação de pull requests](validacao-pr.md). |
 | [Jenkinsfile](../../Jenkinsfile) | Define a pipeline completa: resolve o commit, encadeia os cinco jobs e, na `main`, pede o deploy ao Render. |
 | [infra/jenkins/solicitar-deploy-render.js](../../infra/jenkins/solicitar-deploy-render.js) | Faz o pedido único ao deploy hook do Render com o digest aprovado, sem expor a URL. Testes: `node --test infra/jenkins/solicitar-deploy-render.test.js`. |
