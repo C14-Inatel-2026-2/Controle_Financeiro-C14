@@ -41,8 +41,9 @@ por usuário depende da história de autenticação e não faz parte desta entre
 
 ## Execução local e integração futura
 
-Em `backend/`, execute `npm ci` e `npm run dev` com Node.js 22.13 ou superior
-com `node:sqlite` disponível. A API atende em `http://localhost:3000`.
+Em `backend/`, execute `npm ci` e `npm run dev` com Node.js 24. O banco é
+acessado pelo cliente libSQL (veja o [guia do banco](../backend/src/database/README.md)).
+A API atende em `http://localhost:3000`.
 
 No PowerShell com scripts desabilitados, use `npm.cmd` no lugar de `npm`.
 Exemplo de cadastro e consulta no PowerShell:

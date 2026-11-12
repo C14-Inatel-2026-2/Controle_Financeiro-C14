@@ -3,14 +3,14 @@ import request from "supertest";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { DatabaseSync } from "node:sqlite";
+import type { Client } from "@libsql/client";
 import { createAppComBanco } from "../../src/appComBanco.js";
 import { abrirBanco } from "../../src/database/conexao.js";
 
-let db: DatabaseSync;
+let db: Client;
 let pasta: string;
 let frontend: string;
-beforeEach(() => {
+beforeEach(async () => {
   pasta = mkdtempSync(join(tmpdir(), "c14-frontend-"));
   frontend = join(pasta, "public");
   mkdirSync(join(frontend, "assets"), { recursive: true });
@@ -18,7 +18,7 @@ beforeEach(() => {
   writeFileSync(join(frontend, "assets", "app.js"), "console.log('ok');");
   writeFileSync(join(frontend, ".env"), "SEGREDO=nao-deve-sair");
   writeFileSync(join(pasta, "fora.txt"), "fora da pasta pública");
-  db = abrirBanco(":memory:");
+  db = await abrirBanco(":memory:");
 });
 afterEach(() => {
   db.close();

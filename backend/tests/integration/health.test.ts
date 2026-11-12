@@ -1,11 +1,16 @@
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import type { Client } from "@libsql/client";
 import request from "supertest";
 import { createApp } from "../../src/app";
 import { abrirBanco } from "../../src/database/conexao";
 import { createSqliteGoalRepository } from "../../src/features/goals/infrastructure/sqlite-goal-repository";
 
-const db = abrirBanco(":memory:");
-const app = createApp({ goalCatalog: createSqliteGoalRepository(db) });
+let db: Client;
+let app: ReturnType<typeof createApp>;
+beforeAll(async () => {
+  db = await abrirBanco(":memory:");
+  app = createApp({ goalCatalog: createSqliteGoalRepository(db) });
+});
 afterAll(() => db.close());
 
 describe("GET /health", () => {

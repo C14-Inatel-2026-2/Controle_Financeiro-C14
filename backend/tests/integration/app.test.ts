@@ -1,13 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
-import type { DatabaseSync } from "node:sqlite";
+import type { Client } from "@libsql/client";
 import { app, createApp } from "../../src/app.js";
 import type { CriarUsuario } from "../../src/controllers/createUserController.js";
 import { abrirBanco } from "../../src/database/conexao.js";
 import { createSqliteGoalRepository } from "../../src/features/goals/infrastructure/sqlite-goal-repository.js";
 
-let db: DatabaseSync;
-beforeEach(() => { db = abrirBanco(":memory:"); });
+let db: Client;
+beforeEach(async () => { db = await abrirBanco(":memory:"); });
 afterEach(() => db.close());
 
 const dadosUsuario = { nome: "Ana", email: "ana@example.test", senha: "senha-teste-123" };

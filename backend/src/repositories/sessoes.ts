@@ -1,30 +1,34 @@
-import type { DatabaseSync } from "node:sqlite";
 import { createHash, randomBytes } from "node:crypto";
+import type { Banco } from "../database/conexao.js";
 
 export const DURACAO_SESSAO_MS = 8 * 60 * 60 * 1000;
 
-// O banco guarda só o hash: quem ler o arquivo SQLite não consegue usar as sessões.
+// O banco guarda só o hash: quem ler o banco não consegue usar as sessões.
 function hashDoToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
 }
 
-export function criarRepositorioSessoes(db: DatabaseSync, agora: () => number = Date.now) {
+export function criarRepositorioSessoes(db: Banco, agora: () => number = Date.now) {
   return {
-    criar(usuarioId: number) {
+    async criar(usuarioId: number) {
       const token = randomBytes(32).toString("base64url");
       const expiraEm = agora() + DURACAO_SESSAO_MS;
-      db.prepare("DELETE FROM sessoes WHERE expira_em <= ?").run(agora());
-      db.prepare("INSERT INTO sessoes (token_hash, usuario_id, expira_em) VALUES (?, ?, ?)")
-        .run(hashDoToken(token), usuarioId, expiraEm);
+      // Uma única ida ao banco: limpa as expiradas e grava a nova juntas.
+      await db.batch([
+        { sql: "DELETE FROM sessoes WHERE expira_em <= ?", args: [agora()] },
+        { sql: "INSERT INTO sessoes (token_hash, usuario_id, expira_em) VALUES (?, ?, ?)", args: [hashDoToken(token), usuarioId, expiraEm] },
+      ], "write");
       return { token, expiraEm };
     },
-    buscarUsuarioId(token: string): number | undefined {
-      const linha = db.prepare("SELECT usuario_id FROM sessoes WHERE token_hash = ? AND expira_em > ?")
-        .get(hashDoToken(token), agora());
-      return linha ? Number(linha.usuario_id) : undefined;
+    async buscarUsuarioId(token: string): Promise<number | undefined> {
+      const { rows } = await db.execute({
+        sql: "SELECT usuario_id FROM sessoes WHERE token_hash = ? AND expira_em > ?",
+        args: [hashDoToken(token), agora()],
+      });
+      return rows[0] ? Number(rows[0].usuario_id) : undefined;
     },
-    remover(token: string): void {
-      db.prepare("DELETE FROM sessoes WHERE token_hash = ?").run(hashDoToken(token));
+    async remover(token: string): Promise<void> {
+      await db.execute({ sql: "DELETE FROM sessoes WHERE token_hash = ?", args: [hashDoToken(token)] });
     },
   };
 }

@@ -1,49 +1,32 @@
-import { describe, expect, it, vi } from "vitest";
-import type { DatabaseSync } from "node:sqlite";
-import { criarRepositorioMovimentacoes } from "../../src/repositories/movimentacoes";
+import { describe, expect, it } from "vitest";
+import { comandoInserirMovimentacao } from "../../src/repositories/movimentacoes";
 import { validarValorEmCentavos } from "../../src/repositories/validarValorEmCentavos";
 
-// Não abre SQLite: prepare, run e all são simulados nos dois primeiros testes.
-describe("Repositório de movimentações — com mock", () => {
-  it("insere a movimentação com o dono correto e retorna o ID gerado", () => {
-    const run = vi.fn().mockReturnValue({ lastInsertRowid: 42n, changes: 1 });
-    const prepare = vi.fn().mockReturnValue({ run });
-    const db = { prepare } as unknown as DatabaseSync;
-    const repositorio = criarRepositorioMovimentacoes(db);
+// Funções puras: montam o comando sem abrir banco. A execução real fica nos testes de integração.
+describe("Comando de inserção de movimentações", () => {
+  const movimento = { descricao: " Mercado ", tipo: "despesa" as const, valorEmCentavos: 3000, data: "2026-09-30" };
+  const sqlCompacto = (sql: string) => sql.replace(/\s+/g, " ").trim();
 
-    const id = repositorio.inserir(7, {
-      descricao: "Mercado",
-      tipo: "despesa",
-      valorEmCentavos: 3000,
-      data: "2026-09-30",
-    });
-
-    expect(prepare).toHaveBeenCalledTimes(1);
-    const sql = prepare.mock.calls[0]![0] as string;
-    expect(sql.replace(/\s+/g, " ").trim()).toBe(
-      "INSERT INTO movimentacoes (usuario_id, descricao, tipo, valor_em_centavos, data) VALUES (?, ?, ?, ?, ?)"
+  it("usa parâmetros, o dono informado e a descrição normalizada", () => {
+    const comando = comandoInserirMovimentacao(7, movimento) as { sql: string; args: unknown[] };
+    expect(sqlCompacto(comando.sql)).toBe(
+      "INSERT INTO movimentacoes (usuario_id, descricao, tipo, valor_em_centavos, data) VALUES (?, ?, ?, ?, ?)",
     );
-    expect(run).toHaveBeenCalledExactlyOnceWith(7, "Mercado", "despesa", 3000, "2026-09-30");
-    expect(id).toBe(42);
+    expect(comando.args).toEqual([7, "Mercado", "despesa", 3000, "2026-09-30"]);
   });
 
-  it("consulta pelo ID do usuário e devolve as movimentações retornadas", () => {
-    const movimentos = [{ id: 42, descricao: "Mercado", tipo: "despesa", valorEmCentavos: 3000, data: "2026-09-30", categoriaId: null }];
-    const all = vi.fn().mockReturnValue(movimentos);
-    const prepare = vi.fn().mockReturnValue({ all });
-    const db = { prepare } as unknown as DatabaseSync;
-    const repositorio = criarRepositorioMovimentacoes(db);
+  it("inclui a categoria quando informada", () => {
+    const comando = comandoInserirMovimentacao(7, { ...movimento, categoriaId: 10 }) as { sql: string; args: unknown[] };
+    expect(sqlCompacto(comando.sql)).toContain("data, categoria_id) VALUES (?, ?, ?, ?, ?, ?)");
+    expect(comando.args).toEqual([7, "Mercado", "despesa", 3000, "2026-09-30", 10]);
+  });
 
-    expect(repositorio.listar(7)).toEqual(movimentos);
-    expect(prepare).toHaveBeenCalledTimes(1);
-    const sql = prepare.mock.calls[0]![0] as string;
-    expect(sql.replace(/\s+/g, " ")).toContain("categoria_id AS categoriaId FROM movimentacoes");
-    expect(sql.replace(/\s+/g, " ")).toContain("FROM movimentacoes WHERE usuario_id = ? ORDER BY data, id");
-    expect(all).toHaveBeenCalledExactlyOnceWith(7);
+  it("rejeita descrição vazia e valor inválido antes de chegar ao banco", () => {
+    expect(() => comandoInserirMovimentacao(7, { ...movimento, descricao: "  " })).toThrow();
+    expect(() => comandoInserirMovimentacao(7, { ...movimento, valorEmCentavos: -1 })).toThrow();
   });
 });
 
-// Função real, sem mocks e sem abrir banco de dados.
 describe("Validação de valores — sem mock", () => {
   it("aceita um valor inteiro positivo em centavos", () => {
     expect(() => validarValorEmCentavos(3000)).not.toThrow();

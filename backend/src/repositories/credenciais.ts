@@ -1,4 +1,4 @@
-import type { DatabaseSync } from "node:sqlite";
+import type { Banco } from "../database/conexao.js";
 import type { Usuario } from "../models/user.js";
 
 export interface Credenciais extends Usuario {
@@ -6,15 +6,15 @@ export interface Credenciais extends Usuario {
 }
 
 // Consulta interna do login: senha_hash nunca deve sair numa resposta da API.
-export function criarRepositorioCredenciais(db: DatabaseSync) {
-  const porEmail = db.prepare("SELECT id, nome, email, senha_hash FROM usuarios WHERE email = ?");
-  const porId = db.prepare("SELECT id, nome, email FROM usuarios WHERE id = ?");
+export function criarRepositorioCredenciais(db: Banco) {
   return {
-    buscarPorEmail(email: string) {
-      return porEmail.get(email) as Credenciais | undefined;
+    async buscarPorEmail(email: string) {
+      const { rows } = await db.execute({ sql: "SELECT id, nome, email, senha_hash FROM usuarios WHERE email = ?", args: [email] });
+      return rows[0] as unknown as Credenciais | undefined;
     },
-    buscarPorId(id: number) {
-      return porId.get(id) as Usuario | undefined;
+    async buscarPorId(id: number) {
+      const { rows } = await db.execute({ sql: "SELECT id, nome, email FROM usuarios WHERE id = ?", args: [id] });
+      return rows[0] as unknown as Usuario | undefined;
     },
   };
 }

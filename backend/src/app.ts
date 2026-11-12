@@ -54,7 +54,7 @@ export function createApp({
     api.get("/resumo", exigirSessao, async (req, res) => {
       const id = req.usuario!.id;
       const categorias = await categoriasDoUsuario(id).list();
-      res.json(resumir(movimentacoes.listar(id), categorias, mesAtual()));
+      res.json(resumir(await movimentacoes.listar(id), categorias, mesAtual()));
     });
   }
 

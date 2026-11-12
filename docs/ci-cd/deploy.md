@@ -26,8 +26,9 @@ Veja o [guia rápido](#guia-rápido-executar-a-imagem-publicada).
   computador ligado. Para publicar sem ele, veja
   [Quem pode executar e publicar](../jenkins/README.md#quem-pode-executar-e-publicar).
 - **Endereço público do site:** o Docker Hub não hospeda a aplicação em
-  execução. Para alguém abrir o sistema pela internet, sem rodar o contêiner,
-  é preciso uma hospedagem adicional, que o projeto ainda não tem.
+  execução. A hospedagem no Render gratuito, com o banco no Turso, está
+  preparada no código, mas **ainda não foi publicada nem validada**. Veja
+  [Hospedagem pública no Render com Turso](#hospedagem-pública-no-render-com-turso).
 
 ## O que o job faz, em ordem
 
@@ -227,10 +228,18 @@ uma nova publicação. Até lá, a tag `5060557…` continua com as limitações
 | Variável | Padrão na imagem | Uso |
 | --- | --- | --- |
 | `PORT` | `3000` | Porta da aplicação dentro do contêiner. Sem a variável, o servidor também usa 3000. |
-| `DATABASE_PATH` | `/data/financeiro.sqlite` | Arquivo do SQLite. `/data` é o ponto de montagem do volume. |
+| `DATABASE_PATH` | `/data/financeiro.sqlite` | Arquivo do SQLite. `/data` é o ponto de montagem do volume. Ignorada quando o Turso está configurado. |
+| `TURSO_DATABASE_URL` | (não definida) | URL `libsql://…` do banco no Turso. Definida junto com o token, a aplicação usa só o Turso. |
+| `TURSO_AUTH_TOKEN` | (não definida) | Token do banco no Turso. Segredo: só nas variáveis do serviço, nunca no repositório, na imagem ou em mensagens. |
 | `FRONTEND_DIR` | `/app/public` | Frontend compilado, servido na mesma origem da API. |
 | `NODE_ENV` | `production` | Mantido em produção também no teste por HTTP. |
 | `COOKIE_SECURE` | (não definida) | `true` ou `false` explícito. Sem ela, vale `NODE_ENV=production`, ou seja, `Secure`. Qualquer outro valor impede a aplicação de subir. |
+
+Se só uma das variáveis do Turso estiver definida, ou se a URL não começar com
+`libsql://` ou `https://`, a aplicação não sobe e explica o motivo. Com o Turso
+configurado, uma falha de conexão também impede a subida: a aplicação nunca
+volta sozinha para o arquivo local. No Render (`RENDER=true`), subir sem o Turso
+é recusado, porque o disco do serviço é apagado a cada reinício.
 
 O contêiner roda como o usuário `node` (uid 1000). A pasta `/data` da imagem
 pertence a ele, e um volume nomeado novo herda esse dono na primeira
@@ -245,6 +254,153 @@ O teste local é por `http://localhost`, então use **`COOKIE_SECURE=false`**,
 como nos comandos do guia rápido. A imagem continua com `NODE_ENV=production`. Ao
 publicar atrás de HTTPS, não defina `COOKIE_SECURE`, ou use `true`. A
 verificação do Jenkins testa as duas configurações.
+
+## Hospedagem pública no Render com Turso
+
+**Situação:** preparado e testado localmente, **ainda não publicado**. O
+deploy só estará concluído quando a URL pública do Render funcionar e os dados
+continuarem lá depois de um reinício e de uma nova publicação.
+
+### Onde ficam os dados
+
+| Ambiente | Banco |
+| --- | --- |
+| Desenvolvimento (`npm run dev`) | Arquivo `backend/data/financeiro.sqlite`, fora do Git. |
+| Testes (local e Jenkins) | libSQL local em memória ou em pasta temporária. Sem rede, sem token e sem acesso ao Turso. |
+| Docker no computador | Arquivo `/data/financeiro.sqlite`, no volume `controle-financeiro-dados`. |
+| Render | Somente o Turso (`controle-financeiro-c14`), inclusive as sessões de login. O disco do Render não guarda nada. |
+
+O mesmo cliente oficial (`@libsql/client`) atende todos os casos. Veja
+[o guia do banco](../../backend/src/database/README.md).
+
+### 1. Obter a URL e um token do banco
+
+Com a [CLI do Turso](https://docs.turso.tech/cli/introduction) autenticada
+(`turso auth login`):
+
+```powershell
+turso db show controle-financeiro-c14 --url
+# libsql://controle-financeiro-c14-<sua-organização>.turso.io   (formato; valor fictício)
+
+# Token limitado a este banco, copiado direto para a área de transferência, sem aparecer na tela.
+turso db tokens create controle-financeiro-c14 | Set-Clipboard
+```
+
+O token de `turso db tokens create` vale só para esse banco. Sem
+`--expiration`, ele não expira: para trocá-lo, crie outro, atualize o Render e
+invalide o antigo no Turso. Não use token de grupo nem token da Platform API.
+O painel do Turso também mostra a URL e gera o token (banco → *Connect*).
+
+### 2. Inicializar o banco remoto vazio (uma vez)
+
+O banco novo não precisa de comando separado: na primeira partida, a aplicação
+aplica as migrations 1 a 5 e só depois abre a porta. Para conferir a conexão
+antes do Render, rode o backend compilado uma vez no seu computador, com as
+variáveis só nesta janela do PowerShell:
+
+```powershell
+Set-Location .\backend
+npm ci; npm run build
+$env:TURSO_DATABASE_URL = "<URL do passo 1>"
+$env:TURSO_AUTH_TOKEN = Get-Clipboard          # o token copiado no passo 1
+$env:PORT = "3100"                              # não conflita com o contêiner local
+node dist/server.js                             # espere "banco: Turso (remoto)"; encerre com Ctrl+C
+Remove-Item Env:TURSO_DATABASE_URL, Env:TURSO_AUTH_TOKEN, Env:PORT
+
+turso db shell controle-financeiro-c14 "SELECT versao FROM migrations ORDER BY versao"   # 1 a 5
+```
+
+Se aparecer `Não foi possível iniciar`, a mensagem diz o que falta: variável,
+URL inválida ou falha de conexão. O token nunca é impresso.
+
+**Banco novo × seus dados locais:** o caminho acima começa com o banco vazio.
+Os dados do seu `backend/data/financeiro.sqlite` ou do volume Docker **não são
+enviados automaticamente**. Se quiser levá-los, crie outro banco a partir de
+uma cópia do arquivo, com o app local parado:
+`turso db create <nome-novo> --from-file <cópia>.sqlite`
+([CLI](https://docs.turso.tech/cli/db/create)). Depois use a URL e o token
+desse banco. O arquivo inclui contas, hashes de senha e sessões: não o coloque
+no repositório.
+
+### 3. Criar o Web Service no Render
+
+Na tela de **Existing Image**:
+
+| Campo | Valor |
+| --- | --- |
+| Image URL | `docker.io/bunnyzzw/controle-financeiro-c14:<SHA>`, de uma imagem publicada **depois** desta entrega. Imagens anteriores não conhecem o Turso e gravariam no disco temporário. |
+| Region | A mesma do banco: Virginia (US East), como o Turso em AWS US East. |
+| Instance Type | Free |
+| Health Check Path | `/health` |
+| Docker Command / Pre-Deploy Command | vazios (as migrations rodam na partida) |
+| Environment | `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN` e `COOKIE_SECURE=true` |
+
+As variáveis ficam só nas configurações do serviço, fora da imagem e do Git.
+Não defina `PORT`: o Render informa a porta (10000 por padrão), e a aplicação a
+usa, escutando em todas as interfaces. O Render entrega HTTPS e a mesma origem
+serve o frontend e `/api`, então o cookie `Secure` funciona sem outra configuração.
+
+### 4. Testar a URL pública e a persistência
+
+1. Abra `https://<serviço>.onrender.com/health` (`{"status":"ok"}`) e o site.
+2. Crie uma conta de teste, entre, crie uma categoria e importe uma fatura CSV de exemplo.
+3. No Render, use **Manual Deploy → Restart service**. Entre de novo com a mesma
+   conta: a categoria e os lançamentos devem continuar lá.
+4. Publique de novo (**Manual Deploy → Deploy latest reference**) e repita a conferência.
+5. Deixe o serviço sem acesso por mais de 15 minutos. O primeiro acesso demora
+   cerca de um minuto, e os dados e a sessão continuam válidos.
+6. Confira no Turso: `turso db shell controle-financeiro-c14 "SELECT count(*) FROM usuarios"`.
+
+Registre a data, o SHA da imagem e o resultado em [Evidências registradas](#evidências-registradas).
+
+### Publicar uma versão nova
+
+1. O Jenkins publica a tag do SHA (e `latest`, na `main`) depois dos testes e
+   da verificação da imagem.
+2. O Render **não** troca de imagem sozinho. Atualize a tag do SHA em
+   *Settings → Image URL* e use **Manual Deploy**. Se o serviço usar `latest`,
+   use **Deploy latest reference**. O *deploy hook* do serviço também serve,
+   com o parâmetro `imgURL` para escolher a tag
+   ([Render](https://render.com/docs/deploying-an-image)).
+3. As migrations novas são aplicadas na partida. Se o banco falhar, a porta não
+   abre, o health check falha e o Render mantém a versão anterior no ar.
+
+### Voltar para a imagem anterior
+
+- Pelo Render: **Rollback** para um deploy anterior (no plano gratuito, só os
+  dois mais recentes), ou a tag de SHA anterior em *Image URL* e **Manual Deploy**.
+  A imagem precisa continuar no Docker Hub.
+- **Não volte para uma imagem anterior a esta entrega:** ela ignora o Turso e
+  gravaria no disco temporário do Render.
+- As migrations 1 a 5 só acrescentam tabelas e colunas. Se uma versão futura
+  mudar o esquema de forma incompatível, a imagem antiga pode falhar com o
+  banco já migrado. Nesse caso, a volta exige restaurar o banco (abaixo) junto
+  com a imagem.
+
+### Backup e recuperação
+
+- **Cópia em SQL:** `turso db shell controle-financeiro-c14 .dump > C:\backups\c14-AAAA-MM-DD.sql`,
+  fora da pasta do repositório.
+- **Restaurar a cópia:** `turso db create controle-financeiro-c14-restaurado --from-dump <arquivo>.sql`,
+  e troque a URL e o token no Render para o banco restaurado.
+- **Ponto no tempo:** `turso db create <nome-novo> --from-db controle-financeiro-c14 --timestamp 2026-11-12T10:00:00-03:00`,
+  dentro da janela de retenção do plano ([preços](https://turso.tech/pricing)).
+- Restaure sempre num banco novo e confira antes de trocar o Render.
+
+Comandos em [db shell](https://docs.turso.tech/cli/db/shell) e
+[db create](https://docs.turso.tech/cli/db/create).
+
+### Limitações do plano gratuito
+
+Conferidas em 12/11/2026 em [Render Free](https://render.com/docs/free) e
+[Turso Pricing](https://turso.tech/pricing). Os limites podem mudar: confira
+antes de depender deles.
+
+- O serviço dorme depois de 15 minutos sem tráfego, e o primeiro acesso leva cerca de um minuto.
+- Há uma cota mensal de horas de instância gratuitas por workspace. Quando ela acaba, os serviços gratuitos ficam suspensos até o mês seguinte.
+- O disco é apagado a cada deploy, reinício ou suspensão, e o plano gratuito não aceita disco persistente. Por isso o banco fica no Turso.
+- O Render pode reiniciar o serviço a qualquer momento. Há uma única instância, sem shell.
+- O Turso gratuito tem limites de armazenamento, leituras, escritas e retenção para restauração. Veja a página de preços.
 
 ## Acesso do agente ao Docker
 
@@ -343,6 +499,11 @@ movimentações, que entraram depois.
 2. **Depois do merge do PR na `main`:** executar a `pipeline-completa` com
    `BRANCH=main`. É essa execução que publica `latest`, se o SHA ainda for a
    ponta da `main`.
+
+3. **Turso e Render:** publicar uma imagem desta entrega pelo Jenkins, criar o
+   serviço no Render e registrar o teste da URL pública e da persistência após
+   reinício e nova publicação ([passo 4](#4-testar-a-url-pública-e-a-persistência)).
+   Até lá, o modo remoto só foi testado com um servidor libSQL local.
 
 Ao registrar cada execução, anote o número da pipeline e do deploy, o commit, a
 referência e o digest de `imagem-publicada.txt`.

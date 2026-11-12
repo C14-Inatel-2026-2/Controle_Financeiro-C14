@@ -1,34 +1,35 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import request from "supertest";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { DatabaseSync } from "node:sqlite";
+import type { Client } from "@libsql/client";
 import { createApp } from "../../src/app";
 import { abrirBanco, migrarBanco } from "../../src/database/conexao";
 import { createSqliteGoalRepository } from "../../src/features/goals/infrastructure/sqlite-goal-repository";
+import { linhas, removerPastaTemporaria } from "../helpers/banco.js";
 
-let db: DatabaseSync;
+let db: Client;
 let directory: string;
-beforeEach(() => {
+beforeEach(async () => {
   directory = mkdtempSync(join(tmpdir(), "c14-goals-"));
-  db = abrirBanco(join(directory, "financeiro.sqlite"));
+  db = await abrirBanco(join(directory, "financeiro.sqlite"));
 });
 afterEach(() => {
-  if (db.isOpen) db.close();
-  rmSync(directory, { recursive: true, force: true });
+  if (!db.closed) db.close();
+  removerPastaTemporaria(directory);
 });
 const goal = { name: "Viagem", targetAmountInCents: 12345 };
 const app = () => createApp({ goalCatalog: createSqliteGoalRepository(db) });
 
-describe("API e SQLite de metas", () => {
+describe("API e banco libSQL de metas", () => {
   it("lista vazia; cadastra e consulta com progresso zero mesmo após reabrir o banco", async () => {
     expect((await request(app()).get("/goals")).body).toEqual([]);
     const response = await request(app()).post("/goals").send({ ...goal, name: " Viagem " });
     expect(response.status).toBe(201);
     expect(response.body).toEqual({ ...goal, progressAmountInCents: 0 });
     db.close();
-    db = abrirBanco(join(directory, "financeiro.sqlite"));
+    db = await abrirBanco(join(directory, "financeiro.sqlite"));
     const listing = await request(app()).get("/goals");
     expect(listing.status).toBe(200);
     expect(listing.body).toEqual([response.body]);
@@ -72,24 +73,26 @@ describe("API e SQLite de metas", () => {
     }
   });
 
-  it("adiciona a migration 2 a um banco na versão 1 e preserva seus registros", () => {
-    db.exec(`DROP TABLE metas; DELETE FROM migrations WHERE versao = 2;
+  it("adiciona a migration 2 a um banco na versão 1 e preserva seus registros", async () => {
+    await db.executeMultiple(`DROP TABLE metas; DELETE FROM migrations WHERE versao = 2;
       INSERT INTO usuarios (id, nome, email, senha_hash) VALUES (1, 'Ana', 'ana@example.test', 'hash-teste');
       INSERT INTO movimentacoes (usuario_id, descricao, tipo, valor_em_centavos, data)
         VALUES (1, 'Salário', 'receita', 10000, '2026-10-01');`);
-    migrarBanco(db);
-    migrarBanco(db);
-    expect(db.prepare("SELECT * FROM usuarios").all()).toHaveLength(1);
-    expect(db.prepare("SELECT * FROM movimentacoes").all()).toHaveLength(1);
-    expect(db.prepare("SELECT * FROM metas").all()).toEqual([]);
+    await migrarBanco(db);
+    await migrarBanco(db);
+    expect(await linhas(db, "SELECT * FROM usuarios")).toHaveLength(1);
+    expect(await linhas(db, "SELECT * FROM movimentacoes")).toHaveLength(1);
+    expect(await linhas(db, "SELECT * FROM metas")).toEqual([]);
     // Este cenário verifica a evolução das metas; migrations posteriores pertencem a outros módulos.
-    expect(db.prepare("SELECT versao FROM migrations WHERE versao <= 2 ORDER BY versao").all()).toEqual([{ versao: 1 }, { versao: 2 }]);
+    expect(await linhas(db, "SELECT versao FROM migrations WHERE versao <= 2 ORDER BY versao")).toEqual([{ versao: 1 }, { versao: 2 }]);
   });
 
-  it("o SQLite rejeita alvos inválidos e nomes vazios mesmo sem passar pelo serviço", () => {
+  it("o banco rejeita alvos inválidos e nomes vazios mesmo sem passar pelo serviço", async () => {
+    const inserir = (nome: string, valor: number) =>
+      db.execute({ sql: "INSERT INTO metas (nome, valor_alvo_em_centavos) VALUES (?, ?)", args: [nome, valor] });
     for (const value of [0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1]) {
-      expect(() => db.prepare("INSERT INTO metas (nome, valor_alvo_em_centavos) VALUES (?, ?)").run("Meta", value)).toThrow();
+      await expect(inserir("Meta", value)).rejects.toThrow();
     }
-    expect(() => db.prepare("INSERT INTO metas (nome, valor_alvo_em_centavos) VALUES (?, ?)").run(" ", 1)).toThrow();
+    await expect(inserir(" ", 1)).rejects.toThrow();
   });
 });

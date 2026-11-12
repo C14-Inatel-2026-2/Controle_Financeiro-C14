@@ -35,7 +35,7 @@ A cobertura segue [backend/vitest.config.mts](../../backend/vitest.config.mts): 
 
 ### Na máquina local (opcional)
 
-Para reproduzir o job fora do Jenkins, use a mesma versão principal de Node.js do agente: **Node.js 24**, de preferência `24.21.0`. Os testes de banco usam o módulo `node:sqlite`, que não existe em versões antigas do Node; usar outra versão pode gerar resultados diferentes dos do Jenkins.
+Para reproduzir o job fora do Jenkins, use a mesma versão principal de Node.js do agente: **Node.js 24**, de preferência `24.21.0`. Os testes de banco usam o cliente libSQL (`@libsql/client`), cujo binário nativo o `npm ci` instala para o sistema do agente. Eles usam banco em memória ou em pasta temporária, sem rede, sem token e sem acesso ao Turso. Usar outra versão do Node pode gerar resultados diferentes dos do Jenkins.
 
 **Terminal PowerShell — conferir as versões:**
 

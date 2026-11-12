@@ -1,22 +1,21 @@
-import type { DatabaseSync } from "node:sqlite";
+import type { Banco } from "../database/conexao.js";
 import type { Usuario } from "../models/user.js";
 import { EmailAlreadyExistsError } from "../errors/userErrors.js";
 import type { UserRepository } from "./userRepository.js";
 
-export function createSqliteUserRepository(db: DatabaseSync): UserRepository {
-  const buscar = db.prepare("SELECT id, nome, email FROM usuarios WHERE email = ?");
-  const inserir = db.prepare(`
-    INSERT INTO usuarios (nome, email, senha_hash) VALUES (?, ?, ?)
-    ON CONFLICT(email) DO NOTHING
-  `);
-
+export function createSqliteUserRepository(db: Banco): UserRepository {
   return {
     async buscarPorEmail(email) {
-      return buscar.get(email) as Usuario | undefined;
+      const { rows } = await db.execute({ sql: "SELECT id, nome, email FROM usuarios WHERE email = ?", args: [email] });
+      return rows[0] as unknown as Usuario | undefined;
     },
     async inserir({ nome, email, senha_hash }) {
-      const resultado = inserir.run(nome, email, senha_hash);
-      if (resultado.changes === 0) throw new EmailAlreadyExistsError();
+      const resultado = await db.execute({
+        sql: `INSERT INTO usuarios (nome, email, senha_hash) VALUES (?, ?, ?)
+          ON CONFLICT(email) DO NOTHING`,
+        args: [nome, email, senha_hash],
+      });
+      if (resultado.rowsAffected === 0) throw new EmailAlreadyExistsError();
       return Number(resultado.lastInsertRowid);
     },
   };
