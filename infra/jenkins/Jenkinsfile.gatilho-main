@@ -1,0 +1,31 @@
+// Gatilho GitHub → Jenkins da produção (job gatilho-main, definido em infra/jenkins/jobs.groovy).
+//
+// O job consulta a main do GitHub a cada 2 minutos (polling SCM). Quando encontra um commit
+// novo, esta execução inicia a pipeline-completa com BRANCH=main; ela resolve o SHA atual,
+// testa, publica a imagem e pede o deploy ao Render pelo fluxo de sempre.
+//
+// - O SCM deste job é fixo em refs/heads/main: execuções manuais da pipeline-completa com
+//   outras branches não mudam o que o polling acompanha.
+// - Sem properties(): chamá-lo aqui apagaria o gatilho declarado no Job DSL.
+// - Sem node: roda no controlador e não ocupa o executor do agente.
+// - A primeira execução (manual ou do polling) só registra a referência, sem iniciar a pipeline.
+
+def porPolling = !currentBuild.getBuildCauses('hudson.triggers.SCMTrigger$SCMTriggerCause').isEmpty()
+
+// Sem execução anterior, o polling do Jenkins acusa "mudança" só por não ter com o que comparar.
+// A primeira execução apenas registra a main atual: aplicar o job não dispara um deploy sozinho.
+if (!porPolling || currentBuild.previousBuild == null) {
+    def motivo = porPolling ? 'Primeira execução do gatilho' : 'Execução manual'
+    echo "${motivo}: a main atual foi registrada como referência do polling. A pipeline-completa não foi iniciada."
+    currentBuild.description = 'referência do polling registrada'
+    return
+}
+
+// wait: false: este job termina logo; a pipeline-completa entra na fila dela, que é serializada.
+// Pedidos iguais (BRANCH=main) que chegam enquanto outro espera na fila são unidos pelo Jenkins.
+build job: 'pipeline-completa',
+      parameters: [string(name: 'BRANCH', value: 'main')],
+      wait: false
+
+echo 'Commit novo na main detectado: pipeline-completa solicitada com BRANCH=main.'
+currentBuild.description = 'pipeline-completa da main solicitada'

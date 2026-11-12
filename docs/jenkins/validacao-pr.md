@@ -11,7 +11,7 @@
 - O modo de mescla do próprio plugin não é usado. Nele o Jenkins procura o Jenkinsfile.pr na ref de mescla que o GitHub gera (`refs/pull/<número>/merge`), e o GitHub não gera essa ref quando há conflito: o PR ficava sem execução e sem status, com `'Jenkinsfile.pr' not found` no log de varredura.
 - O Jenkinsfile.pr executado é o da branch do PR. Um PR cuja branch ainda não tem o arquivo (criada antes de ele chegar à `main`) não é construído até ser atualizado com a `main`.
 - PRs vindos de forks não são construídos, porque executariam código de fora do grupo no PC do Caio. Esses PRs ficam sem status, e a pessoa autora deve abrir o PR a partir de uma branch do repositório.
-- A `pipeline-completa` e a publicação no Docker Hub continuam como antes, executadas manualmente.
+- O `pr-validacao` não publica imagem nem atualiza o site. Depois do merge, o [gatilho da main](README.md#gatilho-automático-da-main-gatilho-main) inicia a `pipeline-completa` com `BRANCH=main`, que publica no Docker Hub e pede o deploy ao Render.
 
 ## O que precisa estar ligado
 
