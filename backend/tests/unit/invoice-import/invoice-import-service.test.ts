@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { ConfigurableCsvProfile } from "../../../src/features/invoice-import/infrastructure/profiles/csv/configurable-csv-profile.js";
+import { createExampleCsvProfile } from "../../fixtures/invoice-import/create-example-csv-profile.js";
 import {
   InvoiceParseError,
   UnknownInvoiceLayoutError,
@@ -12,19 +12,7 @@ import { createInvoiceImportService } from "../../../src/features/invoice-import
 const encode = (content: string): Uint8Array => new TextEncoder().encode(content);
 
 // Profile sintético usado para isolar a orquestração do serviço nos testes.
-const exampleBankCsv = new ConfigurableCsvProfile({
-  id: "example-bank-csv-v1",
-  bankId: "example-bank",
-  bankName: "Banco Exemplo",
-  version: "1",
-  columns: {
-    occurredOn: ["data da compra"],
-    description: ["estabelecimento"],
-    amountInCents: ["valor (r$)"],
-  },
-  acceptedDateFormats: ["pt-BR"],
-  amountFormat: "pt-BR",
-});
+const exampleBankCsv = createExampleCsvProfile();
 
 describe("InvoiceImportService", () => {
   it("returns bank options from profiles that can actually be processed", () => {

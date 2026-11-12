@@ -136,6 +136,13 @@ Não há metas de desempenho, de cobertura mínima ou de disponibilidade definid
 - **Comprovado por execução**: a execução na `main` em 17/10/2026 ([registro](docs/jenkins/evidencias/pipeline-completa-main-2026-10-17.txt)) e a `pipeline-completa` #3 do commit `5060557`, cujo `frontend-build` já executa os testes do frontend.
 - **Pendente**: não há evidência de que o resultado do Jenkins bloqueie merges automaticamente; a conferência dos checks antes do merge é responsabilidade do grupo. Não há limite mínimo de cobertura configurado.
 
+## Refactorings
+
+| Responsável | Code smell | Refactoring aplicado | Justificativa | PR |
+| --- | --- | --- | --- | --- |
+| Gustavo | O método de prévia reunia preparação dos lançamentos e cálculo da identificação da fatura. | **Extract Function:** extração de `calculateInvoiceFingerprint()` em [invoice-import-workflow.ts](backend/src/features/invoice-import/application/invoice-import-workflow.ts). | Isola a identificação usada contra duplicidade, preservando o algoritmo SHA-256, a versão `invoice-v1`, a ordenação e o uso dos lançamentos originais, inclusive negativos e descrições completas. | https://github.com/C14-Inatel-2026-2/Controle_Financeiro-C14/pull/42 |
+| Gustavo | A configuração do perfil CSV fictício estava repetida em três pontos de dois arquivos de teste. | **Extract Function:** criação de [createExampleCsvProfile()](backend/tests/fixtures/invoice-import/create-example-csv-profile.ts), utilizada nos testes do serviço e do registro de perfis. | Centraliza a configuração comum e mantém identificador e versão configuráveis. Cada chamada cria uma instância própria; os cenários e as verificações dos testes permanecem iguais. | https://github.com/C14-Inatel-2026-2/Controle_Financeiro-C14/pull/42 |
+
 ## Gestão ágil
 
 O grupo utiliza **Kanban** no Trello para organizar o trabalho: [Kanban - Controle Financeiro C14](https://trello.com/b/fc8c7V8Z/kanban-controle-financeiro-c14).
