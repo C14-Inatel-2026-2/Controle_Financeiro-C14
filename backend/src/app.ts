@@ -1,7 +1,10 @@
+
 import express from "express";
 import { router } from "./routes/index.js";
-import { createGoalRouter } from "./routes/goalRoutes.js";
-import type { GoalCatalog } from "./features/goals/domain/goal-repository.js";
+import {
+  createGoalRouter,
+  type MetasDoUsuario,
+} from "./routes/goalRoutes.js";
 import { createUserRouter } from "./routes/userRoutes.js";
 import type { CriarUsuario } from "./controllers/createUserController.js";
 import { createInvoiceRouter } from "./routes/invoiceRoutes.js";
@@ -11,13 +14,18 @@ import type { InvoiceIdentity } from "./controllers/createInvoiceController.js";
 import { createAuthRouter, type Autenticacao } from "./routes/authRoutes.js";
 import { carregarSessao } from "./middlewares/sessao.js";
 import { tratarErrosDaApi } from "./middlewares/tratarErrosDaApi.js";
-import { createCategoryRouter, type CategoriasDoUsuario } from "./routes/categoryRoutes.js";
-
-import { criarRouterMovimentacoes, type RepositorioMovimentacoes } from "./routes/movimentacoes.js";
+import {
+  createCategoryRouter,
+  type CategoriasDoUsuario,
+} from "./routes/categoryRoutes.js";
+import {
+  criarRouterMovimentacoes,
+  type RepositorioMovimentacoes,
+} from "./routes/movimentacoes.js";
 
 interface AppDependencies {
   movimentacoes?: RepositorioMovimentacoes;
-  goalCatalog?: GoalCatalog;
+  metasDoUsuario?: MetasDoUsuario;
   criarUsuario?: CriarUsuario;
   invoiceWorkflow?: InvoiceImportWorkflow;
   invoiceIdentity?: InvoiceIdentity;
@@ -27,43 +35,71 @@ interface AppDependencies {
 }
 
 export function createApp({
-  goalCatalog, criarUsuario, invoiceWorkflow, invoiceIdentity, autenticacao, categoriasDoUsuario, movimentacoes,
+  metasDoUsuario,
+  criarUsuario,
+  invoiceWorkflow,
+  invoiceIdentity,
+  autenticacao,
+  categoriasDoUsuario,
+  movimentacoes,
   pastaFrontend,
 }: AppDependencies = {}) {
   const api = express.Router();
 
-  // Antes das rotas: qualquer rota abaixo pode ler req.usuario.
+  // Carrega a sessão antes das rotas que utilizam autenticação.
   if (autenticacao) {
     api.use(carregarSessao(autenticacao.sessoes));
   }
 
-  api.use("/invoice-imports", createInvoiceRouter(
-    invoiceWorkflow ?? new InvoiceImportWorkflow(createDefaultInvoiceImportService()), invoiceIdentity,
-  ));
+  // Importação de faturas.
+  api.use(
+    "/invoice-imports",
+    createInvoiceRouter(
+      invoiceWorkflow ??
+        new InvoiceImportWorkflow(createDefaultInvoiceImportService()),
+      invoiceIdentity,
+    ),
+  );
+
+  // Permite receber requisições JSON.
   api.use(express.json());
+
+  // Rotas gerais da aplicação.
   api.use(router);
 
-  // Depois de carregarSessao e express.json: as rotas exigem a sessão e leem o corpo JSON.
+  // Movimentações financeiras.
   if (movimentacoes) {
-    api.use("/movimentacoes", criarRouterMovimentacoes(movimentacoes));
+    api.use(
+      "/movimentacoes",
+      criarRouterMovimentacoes(movimentacoes),
+    );
   }
 
+  // Autenticação.
   if (autenticacao) {
     api.use("/auth", createAuthRouter(autenticacao));
   }
 
+  // Categorias vinculadas ao usuário autenticado.
   if (categoriasDoUsuario) {
-    api.use("/categories", createCategoryRouter(categoriasDoUsuario));
+    api.use(
+      "/categories",
+      createCategoryRouter(categoriasDoUsuario),
+    );
   }
 
-  if (goalCatalog) {
-    api.use("/goals", createGoalRouter(goalCatalog));
+  // Metas financeiras vinculadas ao usuário autenticado.
+  if (metasDoUsuario) {
+    api.use(
+      "/goals",
+      createGoalRouter(metasDoUsuario),
+    );
   }
 
+  // Cadastro de usuários.
   if (criarUsuario) {
     api.use("/users", createUserRouter(criarUsuario));
   } else {
-    // Sem um serviço de cadastro configurado, a API informa indisponibilidade.
     api.post("/users", (_req, res) => {
       res.status(503).json({
         erro: {
@@ -74,22 +110,29 @@ export function createApp({
     });
   }
 
-  // Ao final do router, trata erros das rotas e da leitura do corpo,
-  // tanto nos caminhos com /api quanto nos caminhos sem esse prefixo.
+  // Tratamento centralizado de erros da API.
   api.use(tratarErrosDaApi);
 
   const app = express();
 
-  // O frontend chama /api, como no proxy do Vite. As rotas sem o prefixo continuam valendo.
+  // Rotas com prefixo /api.
   app.use("/api", api);
+
   app.use("/api", (_req, res) => {
-    res.status(404).json({ erro: { codigo: "NOT_FOUND", mensagem: "Rota da API não encontrada." } });
+    res.status(404).json({
+      erro: {
+        codigo: "NOT_FOUND",
+        mensagem: "Rota da API não encontrada.",
+      },
+    });
   });
 
+  // Disponibiliza o frontend quando configurado.
   if (pastaFrontend) {
     app.use(express.static(pastaFrontend));
   }
 
+  // Mantém compatibilidade com as rotas sem /api.
   app.use(api);
 
   return app;
