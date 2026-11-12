@@ -700,36 +700,6 @@ button:disabled {
   font-size: 17px;
 }
 
-.ap-setas {
-  display: flex;
-  gap: 8px;
-}
-
-.ap-seta {
-  width: 34px;
-  height: 34px;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid #262a33;
-  border-radius: 50%;
-  background: none;
-  color: #5f6673;
-  cursor: pointer;
-}
-
-.ap-seta:hover {
-  background: #171a21;
-  color: #c9ced8;
-}
-
-.ap-seta-ativa {
-  border-color: #45c79a;
-  color: #45c79a;
-}
-
 .ap-faixa {
   margin-top: 18px;
   display: flex;
