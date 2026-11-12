@@ -6,13 +6,13 @@ import { criarRepositorioSessoes } from "../../src/repositories/sessoes";
 import { mesAtual } from "../../src/services/resumo";
 
 it("retorna 70 reais para uma conta e zero para a outra", async () => {
-  const db = abrirBanco(":memory:");
+  const db = await abrirBanco(":memory:");
   try {
-    db.exec("INSERT INTO usuarios VALUES (1,'Ana','ana@example.test','hash'),(2,'Bia','bia@example.test','hash')");
+    await db.execute("INSERT INTO usuarios VALUES (1,'Ana','ana@example.test','hash'),(2,'Bia','bia@example.test','hash')");
     const api = request(createAppComBanco(db));
     const sessoes = criarRepositorioSessoes(db);
-    const ana = "sessao=" + sessoes.criar(1).token;
-    const bia = "sessao=" + sessoes.criar(2).token;
+    const ana = "sessao=" + (await sessoes.criar(1)).token;
+    const bia = "sessao=" + (await sessoes.criar(2)).token;
     const mes = mesAtual();
     await api.get("/api/resumo").expect(401);
     for (const [tipo, valorEmCentavos] of [["receita", 10000], ["despesa", 3000]]) {

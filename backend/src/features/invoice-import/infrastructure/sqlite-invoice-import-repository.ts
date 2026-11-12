@@ -1,38 +1,42 @@
-import type { DatabaseSync } from "node:sqlite";
-import { criarRepositorioMovimentacoes } from "../../../repositories/movimentacoes.js";
+import type { InStatement } from "@libsql/client";
+import type { Banco } from "../../../database/conexao.js";
+import { comandoInserirMovimentacao } from "../../../repositories/movimentacoes.js";
 import { DuplicateInvoiceError, type InvoiceImportRepository } from "../domain/invoice-import-repository.js";
 
-type Movements = Pick<ReturnType<typeof criarRepositorioMovimentacoes>, "inserir">;
-
-export function createSqliteInvoiceImportRepository(
-  db: DatabaseSync,
-  movements: Movements = criarRepositorioMovimentacoes(db),
-): InvoiceImportRepository {
-  const insertImport = db.prepare(`
-    INSERT INTO importacoes_faturas (usuario_id, fingerprint, quantidade, total_em_centavos)
-    VALUES (?, ?, ?, ?) ON CONFLICT(usuario_id, fingerprint) DO NOTHING
-  `);
-  const link = db.prepare("INSERT INTO importacao_lancamentos (importacao_id, movimentacao_id) VALUES (?, ?)");
+export function createSqliteInvoiceImportRepository(db: Banco): InvoiceImportRepository {
   return {
-    save(userId, preview) {
-      // O bloqueio de escrita e a chave UNIQUE fecham a corrida entre duas confirmações.
-      // Nenhum await pode ser introduzido entre BEGIN e COMMIT nesta conexão compartilhada.
-      db.exec("BEGIN IMMEDIATE");
+    async save(userId, preview) {
+      // Valida todas as despesas antes de tocar no banco.
+      const lancamentos = preview.entries.map((entry) => comandoInserirMovimentacao(userId, {
+        descricao: entry.description, tipo: "despesa",
+        valorEmCentavos: entry.amountInCents, data: entry.occurredOn,
+      }));
+      const importacao = "(SELECT id FROM importacoes_faturas WHERE usuario_id = ? AND fingerprint = ?)";
+      const vincular: InStatement = {
+        sql: `INSERT INTO importacao_lancamentos (importacao_id, movimentacao_id) VALUES (${importacao}, last_insert_rowid())`,
+        args: [userId, preview.fingerprint],
+      };
       try {
-        const result = insertImport.run(userId, preview.fingerprint, preview.entries.length, preview.totalInCents);
-        if (result.changes === 0) throw new DuplicateInvoiceError();
-        const importId = Number(result.lastInsertRowid);
-        for (const entry of preview.entries) {
-          const movementId = movements.inserir(userId, {
-            descricao: entry.description, tipo: "despesa",
-            valorEmCentavos: entry.amountInCents, data: entry.occurredOn,
-          });
-          link.run(importId, movementId);
-        }
-        db.exec("COMMIT");
-        return { importId, importedCount: preview.entries.length, totalInCents: preview.totalInCents };
+        // Um batch "write" é uma transação: a fatura, as despesas e os vínculos entram juntos
+        // ou nada entra. Funciona igual no arquivo local e no Turso, numa única ida ao banco.
+        const [registro] = await db.batch([
+          {
+            sql: `INSERT INTO importacoes_faturas (usuario_id, fingerprint, quantidade, total_em_centavos)
+              VALUES (?, ?, ?, ?)`,
+            args: [userId, preview.fingerprint, preview.entries.length, preview.totalInCents],
+          },
+          ...lancamentos.flatMap((lancamento) => [lancamento, vincular]),
+        ], "write");
+        return {
+          importId: Number(registro!.lastInsertRowid),
+          importedCount: preview.entries.length,
+          totalInCents: preview.totalInCents,
+        };
       } catch (error) {
-        db.exec("ROLLBACK");
+        // A chave UNIQUE (usuario_id, fingerprint) desfaz o lote quando a fatura já existe,
+        // inclusive em duas confirmações simultâneas. Depois do rollback, confirmamos o motivo.
+        const existente = await db.execute({ sql: `SELECT 1 FROM importacoes_faturas WHERE usuario_id = ? AND fingerprint = ?`, args: [userId, preview.fingerprint] });
+        if (existente.rows.length > 0) throw new DuplicateInvoiceError();
         throw error;
       }
     },

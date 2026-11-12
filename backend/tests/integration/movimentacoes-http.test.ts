@@ -1,23 +1,23 @@
 import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { DatabaseSync } from "node:sqlite";
+import type { Client } from "@libsql/client";
 import { abrirBanco } from "../../src/database/conexao";
 import { createAppComBanco } from "../../src/appComBanco";
 import { criarRepositorioSessoes } from "../../src/repositories/sessoes";
 
-let db: DatabaseSync;
+let db: Client;
 let app: ReturnType<typeof createAppComBanco>;
 let cookie: string;
 const movimento = { descricao: "Mercado", tipo: "despesa", valorEmCentavos: 1500, data: "2026-11-10" };
 
-beforeEach(() => {
-  db = abrirBanco(":memory:");
-  db.exec(`
+beforeEach(async () => {
+  db = await abrirBanco(":memory:");
+  await db.executeMultiple(`
     INSERT INTO usuarios VALUES (1,'Ana','ana@example.test','hash'), (2,'Bia','bia@example.test','hash');
     INSERT INTO categorias VALUES (11,1,'Mercado'), (12,2,'Mercado');
   `);
   app = createAppComBanco(db);
-  cookie = "sessao=" + criarRepositorioSessoes(db).criar(1).token;
+  cookie = "sessao=" + (await criarRepositorioSessoes(db).criar(1)).token;
 });
 afterEach(() => db.close());
 
@@ -37,7 +37,7 @@ describe.each(["", "/api"])("movimentações em '%s/movimentacoes'", (prefixo) =
     }
     const lista = await request(app).get(rota).set("Cookie", cookie).expect(200);
     expect(lista.body.map((m: { categoriaId: number | null }) => m.categoriaId)).toEqual([null, null, 11]);
-    const outraSessao = criarRepositorioSessoes(db).criar(2);
+    const outraSessao = await criarRepositorioSessoes(db).criar(2);
     await request(app).get(rota).set("Cookie", "sessao=" + outraSessao.token).expect(200, []);
   });
 

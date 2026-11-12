@@ -88,7 +88,7 @@ export function createApp({
         return;
       }
       const categorias = await categoriasDoUsuario(id).list();
-      res.json(resumir(movimentacoes.listar(id), categorias, mes));
+      res.json(resumir(await movimentacoes.listar(id), categorias, mes));
     });
   }
 

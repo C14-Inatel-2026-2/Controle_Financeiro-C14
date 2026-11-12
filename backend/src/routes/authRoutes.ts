@@ -19,7 +19,7 @@ export function createAuthRouter({ credenciais, sessoes, cookieSeguro }: Autenti
   router.post("/login", async (req, res) => {
     try {
       const usuario = await loginService(req.body, credenciais.buscarPorEmail);
-      const { token, expiraEm } = sessoes.criar(usuario.id);
+      const { token, expiraEm } = await sessoes.criar(usuario.id);
       res.cookie(NOME_COOKIE, token, { ...opcoesCookie, expires: new Date(expiraEm) });
       res.status(200).json(usuario);
     } catch (erro) {
@@ -33,10 +33,10 @@ export function createAuthRouter({ credenciais, sessoes, cookieSeguro }: Autenti
     }
   });
 
-  router.post("/logout", (req, res) => {
+  router.post("/logout", async (req, res) => {
     try {
       const token = lerTokenDoCookie(req.headers.cookie);
-      if (token) sessoes.remover(token);
+      if (token) await sessoes.remover(token);
       res.clearCookie(NOME_COOKIE, opcoesCookie);
       res.status(204).end();
     } catch {
@@ -44,8 +44,8 @@ export function createAuthRouter({ credenciais, sessoes, cookieSeguro }: Autenti
     }
   });
 
-  router.get("/me", exigirSessao, (req, res) => {
-    const usuario = credenciais.buscarPorId(req.usuario!.id);
+  router.get("/me", exigirSessao, async (req, res) => {
+    const usuario = await credenciais.buscarPorId(req.usuario!.id);
     if (!usuario) {
       res.status(401).json({ erro: { codigo: "AUTHENTICATION_REQUIRED", mensagem: "Faça login para continuar." } });
       return;

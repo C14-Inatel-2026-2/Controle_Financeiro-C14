@@ -23,10 +23,10 @@ export function lerTokenDoCookie(cabecalho: string | undefined): string | undefi
 
 // Roda em todas as requisições e só preenche req.usuario quando a sessão é válida.
 export function carregarSessao(sessoes: Pick<RepositorioSessoes, "buscarUsuarioId">): RequestHandler {
-  return (req, _res, next) => {
+  return async (req, _res, next) => {
     try {
       const token = lerTokenDoCookie(req.headers.cookie);
-      const usuarioId = token ? sessoes.buscarUsuarioId(token) : undefined;
+      const usuarioId = token ? await sessoes.buscarUsuarioId(token) : undefined;
       if (usuarioId) req.usuario = { id: usuarioId };
       next();
     } catch (erro) {

@@ -373,7 +373,7 @@ Mudanças apenas no código ou nos Jenkinsfiles não exigem reconstruir o ambien
 | [backend/Jenkinsfile.unit](../../backend/Jenkinsfile.unit) | Define os testes unitários do backend. |
 | [backend/Jenkinsfile.integration](../../backend/Jenkinsfile.integration) | Define as etapas de integração e cobertura do backend. |
 | [backend/Jenkinsfile.deploy](../../backend/Jenkinsfile.deploy) | Constrói, verifica e publica a imagem no Docker Hub. |
-| [Dockerfile](../../Dockerfile) e [.dockerignore](../../.dockerignore) | Definem a imagem da aplicação: frontend e API na mesma origem, SQLite em `/data`. |
+| [Dockerfile](../../Dockerfile) e [.dockerignore](../../.dockerignore) | Definem a imagem da aplicação: frontend e API na mesma origem, SQLite em `/data` ou Turso, quando configurado. |
 | [infra/jenkins/verificar-imagem.js](../../infra/jenkins/verificar-imagem.js) | Testa a aplicação dentro do contêiner de verificação. |
 | `.secrets/jenkins-agent-secret.txt` | Armazena a credencial local do agente; não é versionado. |
 
