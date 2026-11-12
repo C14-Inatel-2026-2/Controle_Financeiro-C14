@@ -1,5 +1,3 @@
-import { randomBytes, scrypt } from "node:crypto";
-import { promisify } from "node:util";
 import type { DadosCadastro, Usuario } from "../models/user.js";
 import type { UserRepository } from "../repositories/userRepository.js";
 import {
@@ -7,8 +5,8 @@ import {
   EmailAlreadyExistsError,
 } from "../errors/userErrors.js";
 import { normalizarEmail } from "./normalizarEmail.js";
+import { gerarHashDeSenha } from "./senhas.js";
 
-const derivarChave = promisify(scrypt);
 const LIMITE_NOME_USUARIO = 100;
 
 export async function createUserService(
@@ -37,9 +35,7 @@ export async function createUserService(
     throw new EmailAlreadyExistsError();
   }
 
-  const salt = randomBytes(16).toString("hex");
-  const hash = await derivarChave(dados.senha, salt, 64) as Buffer;
-  const senha_hash = `scrypt:${salt}:${hash.toString("hex")}`;
+  const senha_hash = await gerarHashDeSenha(dados.senha);
   const id = await repository.inserir({ nome, email, senha_hash });
 
   return { id, nome, email };

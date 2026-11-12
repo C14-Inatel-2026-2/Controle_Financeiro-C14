@@ -70,6 +70,23 @@ describe("POST /auth/login", () => {
     expect(await linhas(db, "SELECT * FROM sessoes")).toEqual([]);
   });
 
+  it("aceita conta gravada antes da extração do módulo de senhas", async () => {
+    // Hash fixo no formato scrypt:<salt>:<hash>, gerado com o código anterior ao refactoring.
+    const hashAntigo = "scrypt:0123456789abcdef0123456789abcdef:b9438919883baa2968e325da1f63bd603522d1cea14aade5bbea4a66d25ee60f99945902b485913a60b5e65788ac56ddcd23f3258b5fa2724cb77f72e3071c17";
+    await db.execute({
+      sql: "INSERT INTO usuarios (nome, email, senha_hash) VALUES (?, ?, ?)",
+      args: ["Cris", "cris@example.test", hashAntigo],
+    });
+    const app = createAppComBanco(db);
+
+    const certa = await request(app).post("/auth/login").send({ email: "cris@example.test", senha: "senha-antiga-123" });
+    expect(certa.status).toBe(200);
+    expect(certa.body).toEqual({ id: 1, nome: "Cris", email: "cris@example.test" });
+
+    const errada = await request(app).post("/auth/login").send({ email: "cris@example.test", senha: "senha-antiga-124" });
+    expect(errada.status).toBe(401);
+  });
+
   it.each([{}, { email: ana.email }, { email: "", senha: "x" }, { email: ana.email, senha: 123 }])(
     "responde 400 para entrada inválida: %j", async (corpo) => {
       const resposta = await request(createAppComBanco(db)).post("/auth/login").send(corpo);
