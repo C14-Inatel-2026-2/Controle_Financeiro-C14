@@ -1,71 +1,23 @@
-import { useEffect, useState } from "react";
 import { Topo, type PropsDaSessao } from "../components/Topo";
 import type { Tela } from "../navegacao";
-import { ServicoDeCategorias, type Categoria } from "../services/ServicoDeCategorias";
-import { SessaoExpiradaError } from "../services/ServicoDeAutenticacao";
-
-// Fora do componente: uma instância nova a cada render dispararia o useEffect de novo.
-const servicoPadrao = new ServicoDeCategorias();
-const LIMITE_NOME_CATEGORIA = 50;
+import { LIMITE_NOME_CATEGORIA, useCategorias, type ServicoDaTelaDeCategorias } from "../hooks/useCategorias";
 
 type Props = PropsDaSessao & {
   aoNavegar: (tela: Tela) => void;
   // Chamado quando a API responde 401: o App volta ao login.
   aoSessaoExpirada: () => void;
-  servico?: Pick<ServicoDeCategorias, "listar" | "criar">;
+  servico?: ServicoDaTelaDeCategorias;
 };
 
 // As cores foram escolhidas numa paleta testada para daltonismo: mesmo quem
 // não distingue bem as cores consegue separar uma categoria da outra.
 const CORES = ["#3987e5", "#d95926", "#199e70", "#c98500", "#d55181", "#008300"];
 
-export function Categorias({ aoNavegar, usuario, aoSair, aoSessaoExpirada, servico = servicoPadrao }: Props) {
-  const [categorias, setCategorias] = useState<Categoria[]>([]);
-  const [carregando, setCarregando] = useState(true);
-  const [erroLista, setErroLista] = useState("");
-  const [criando, setCriando] = useState(false);
-  const [nome, setNome] = useState("");
-  const [erroNome, setErroNome] = useState("");
-  const [salvando, setSalvando] = useState(false);
-
-  useEffect(() => {
-    let ativo = true;
-    servico
-      .listar()
-      .then((lista) => { if (ativo) setCategorias(lista); })
-      .catch((erro: Error) => {
-        if (!ativo) return;
-        if (erro instanceof SessaoExpiradaError) aoSessaoExpirada();
-        else setErroLista(erro.message);
-      })
-      .finally(() => { if (ativo) setCarregando(false); });
-    return () => { ativo = false; };
-  }, [servico, aoSessaoExpirada]);
-
-  async function salvar() {
-    if (salvando) return;
-    if (nome.trim() === "") {
-      setErroNome("Informe o nome da categoria.");
-      return;
-    }
-    if (nome.trim().length > LIMITE_NOME_CATEGORIA) {
-      setErroNome(`O nome da categoria deve ter no máximo ${LIMITE_NOME_CATEGORIA} caracteres.`);
-      return;
-    }
-    setErroNome("");
-    setSalvando(true);
-    try {
-      const nova = await servico.criar(nome);
-      setCategorias((atuais) => [...atuais, nova]);
-      setNome("");
-      setCriando(false);
-    } catch (erro) {
-      if (erro instanceof SessaoExpiradaError) return aoSessaoExpirada();
-      setErroNome(erro instanceof Error ? erro.message : "Não foi possível criar a categoria.");
-    } finally {
-      setSalvando(false);
-    }
-  }
+export function Categorias({ aoNavegar, usuario, aoSair, aoSessaoExpirada, servico }: Props) {
+  const {
+    categorias, carregando, erroLista, criando, nome, erroNome, salvando,
+    alterarNome, abrirFormulario, cancelar, salvar,
+  } = useCategorias(aoSessaoExpirada, servico);
 
   return (
     <div className="ap-tela">
@@ -81,7 +33,7 @@ export function Categorias({ aoNavegar, usuario, aoSair, aoSessaoExpirada, servi
           </div>
 
           {!criando && (
-            <button className="ap-botao" onClick={() => setCriando(true)}>
+            <button className="ap-botao" onClick={abrirFormulario}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
                 <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
               </svg>
@@ -106,7 +58,7 @@ export function Categorias({ aoNavegar, usuario, aoSair, aoSessaoExpirada, servi
                 placeholder="Ex.: Alimentação"
                 maxLength={LIMITE_NOME_CATEGORIA}
                 value={nome}
-                onChange={(e) => setNome(e.target.value)}
+                onChange={(e) => alterarNome(e.target.value)}
               />
               {erroNome && <span className="erro" role="alert">{erroNome}</span>}
             </label>
@@ -116,7 +68,7 @@ export function Categorias({ aoNavegar, usuario, aoSair, aoSessaoExpirada, servi
             <button
               type="button"
               className="ap-link"
-              onClick={() => { setCriando(false); setNome(""); setErroNome(""); }}
+              onClick={cancelar}
             >
               Cancelar
             </button>
