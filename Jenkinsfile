@@ -27,6 +27,8 @@ properties([
 def branch = params.BRANCH ?: ''
 def branchRef = "refs/heads/${branch}".toString()
 def commit
+// Digest confirmado pelo backend-deploy; é a imagem pedida ao Render.
+def digestPublicado
 
 // Validado antes de chegar ao shell.
 if (!(branch ==~ /[A-Za-z0-9._\/-]+/)) {
@@ -109,5 +111,65 @@ timeout(time: 60, unit: 'MINUTES') {
             error "backend-deploy #${deploy.number} terminou sem comprovar a publicação de ${commit}. Descrição: '${descricao}'"
         }
         echo "Imagem publicada: ${descricao}"
+        // Laço simples: o CPS do Jenkins não aceita o operador spread (*.) e não precisa de closure aqui.
+        for (parte in descricao.tokenize('|')) {
+            def campo = parte.trim()
+            if (campo.startsWith('digest=')) {
+                digestPublicado = campo.substring('digest='.length())
+            }
+        }
+        if (!(digestPublicado ==~ /\S+@sha256:[0-9a-f]{64}/)) {
+            error "Não foi possível ler o digest publicado na descrição do backend-deploy: '${descricao}'"
+        }
+    }
+
+    // Produção: só a main pede ao Render o deploy da imagem exata comprovada acima.
+    // Outras branches publicam a imagem do SHA, mas não mexem no site. O backend-deploy
+    // executado sozinho não chega aqui. disableConcurrentBuilds() serializa as execuções,
+    // e a ponta da main é conferida de novo logo antes do pedido: uma execução atrasada
+    // nunca pede uma versão mais antiga do que a ponta atual.
+    stage('Atualizar Render') {
+        if (branch != 'main') {
+            echo "Render não atualizado: só a main publica no site (BRANCH=${branch})."
+            return
+        }
+        node('node24') {
+            // O mesmo commit que carregou este Jenkinsfile; traz o script do pedido.
+            deleteDir()
+            checkout scm
+            timeout(time: 2, unit: 'MINUTES') {
+                withEnv([
+                    'REPO_URL=https://github.com/C14-Inatel-2026-2/Controle_Financeiro-C14.git',
+                    "COMMIT_APROVADO=${commit}",
+                    "IMAGEM_DIGEST=${digestPublicado}"
+                ]) {
+                    withCredentials([string(credentialsId: 'render-deploy-hook', variable: 'RENDER_DEPLOY_HOOK')]) {
+                        // Aspas simples: o Groovy não interpola o segredo; o shell só o repassa ao Node
+                        // pelo ambiente. Status 10 = ignorado porque a main avançou.
+                        def status = sh(returnStatus: true, script: '''
+                            set -eu
+                            PONTA=$(git ls-remote --exit-code "$REPO_URL" refs/heads/main | cut -f1)
+                            if [ "$PONTA" != "$COMMIT_APROVADO" ]; then
+                                printf 'situacao=ignorado\\nimagem=%s\\nmotivo=a main avançou para %s\\n' "$IMAGEM_DIGEST" "$PONTA" > deploy-render.txt
+                                echo "Deploy no Render ignorado: a main avançou de $COMMIT_APROVADO para $PONTA. Execute a pipeline-completa da main de novo."
+                                exit 10
+                            fi
+                            node infra/jenkins/solicitar-deploy-render.js
+                        ''')
+                        archiveArtifacts(artifacts: 'deploy-render.txt', allowEmptyArchive: true)
+                        def registro = fileExists('deploy-render.txt') ? readFile('deploy-render.txt').trim().replace('\n', ' | ') : ''
+                        if (status == 10) {
+                            currentBuild.description += ' | Render: ignorado (main avançou)'
+                        } else if (status != 0) {
+                            currentBuild.description += ' | Render: falhou'
+                            error "A imagem foi publicada, mas o deploy no Render não foi aceito. ${registro}"
+                        } else {
+                            currentBuild.description += ' | Render: solicitado (confira se ficou Live)'
+                            echo "Deploy solicitado ao Render, ainda não confirmado como Live: ${registro}"
+                        }
+                    }
+                }
+            }
+        }
     }
 }
