@@ -50,14 +50,16 @@ sempre fornece um usuário ao criar metas novas; a coluna aceita NULL para
 preservar o legado. Atribuir essas metas exige uma decisão futura com informação
 confiável, sem distribuição automática ou arbitrária.
 
-`abrirBanco` habilita chaves estrangeiras e aplica as migrations. A versão 6 é
-registrada somente após a reconstrução; falhas revertem a transação inteira.
+`abrirBanco` habilita chaves estrangeiras e aplica as migrations. A versão 6 roda num
+`batch` "write" do libSQL e é registrada somente após a reconstrução; falhas revertem
+a transação inteira.
 Execuções repetidas não recriam a tabela nem alteram registros já migrados.
 A chave estrangeira rejeita donos inexistentes e impede excluir usuários que
 possuam metas vinculadas. Não há exclusão em cascata de metas.
 
 O arquivo padrão é `data/financeiro.sqlite`, relativo à pasta de execução.
 `DATABASE_PATH` permite escolher outro arquivo. Use o mesmo caminho entre reinícios.
+Na hospedagem, as metas ficam no Turso, como os demais dados ([guia do banco](../backend/src/database/README.md)).
 
 ## Progresso e pendências
 
@@ -74,7 +76,7 @@ política de identificação dos proprietários das metas legadas.
 
 ## Execução e verificação
 
-Em `backend/`, use `npm run dev` com Node.js que disponibilize `node:sqlite`.
+Em `backend/`, use `npm run dev` com Node.js 24 (o banco usa o cliente libSQL).
 No PowerShell com scripts desabilitados, use `npm.cmd` no lugar de `npm`.
 Exemplo para uma conta já cadastrada:
 

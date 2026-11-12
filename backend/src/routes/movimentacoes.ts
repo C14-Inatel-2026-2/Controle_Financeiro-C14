@@ -18,16 +18,16 @@ function dadosValidos(body: Partial<NovaMovimentacao> | null | undefined): body 
 export function criarRouterMovimentacoes(repo: RepositorioMovimentacoes) {
   const router = Router();
   router.use(exigirSessao);
-  router.get("/", (req, res) => {
-    res.json(repo.listar(req.usuario!.id));
+  router.get("/", async (req, res) => {
+    res.json(await repo.listar(req.usuario!.id));
   });
-  router.post("/", (req, res) => {
+  router.post("/", async (req, res) => {
     if (!dadosValidos(req.body)) {
       res.status(400).json({ erro: { codigo: "VALIDATION_ERROR", mensagem: "Dados da movimentação inválidos." } });
       return;
     }
     try {
-      const id = repo.inserir(req.usuario!.id, req.body);
+      const id = await repo.inserir(req.usuario!.id, req.body);
       res.status(201).json({ id });
     } catch (erro) {
       if (erro instanceof ValidationError && erro.campo === "descricao") {

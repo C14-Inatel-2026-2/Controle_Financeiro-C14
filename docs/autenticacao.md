@@ -1,6 +1,6 @@
 # Autenticação (RF02)
 
-O login cria uma sessão guardada no SQLite (tabela `sessoes`, migration 4) e
+O login cria uma sessão guardada no banco (tabela `sessoes`, migration 4; arquivo SQLite local ou Turso na hospedagem) e
 envia o identificador dela num cookie. O navegador guarda e reenvia esse cookie
 sozinho. O JavaScript da tela não lê nem guarda token nenhum.
 

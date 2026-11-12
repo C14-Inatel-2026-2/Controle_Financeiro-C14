@@ -1,4 +1,5 @@
-import type { DatabaseSync } from "node:sqlite";
+import type { InStatement } from "@libsql/client";
+import type { Banco } from "../database/conexao.js";
 import { validarValorEmCentavos } from "./validarValorEmCentavos";
 import { validarCategoriaDoUsuario } from "./validarCategoriaDoUsuario.js";
 import { normalizarDescricaoMovimentacao } from "../models/descricaoMovimentacao.js";
@@ -14,32 +15,44 @@ export interface NovaMovimentacao {
   categoriaId?: number | null;
 }
 
-// usuarioId deve vir da autenticação, nunca do corpo da requisição.
-export function criarRepositorioMovimentacoes(db: DatabaseSync) {
+// Valida e monta o INSERT sem executá-lo. A importação de faturas usa o mesmo comando
+// dentro do seu lote atômico. A categoria, quando houver, deve ter sido conferida antes.
+export function comandoInserirMovimentacao(usuarioId: number, movimento: NovaMovimentacao): InStatement {
+  const descricao = normalizarDescricaoMovimentacao(movimento.descricao);
+  validarValorEmCentavos(movimento.valorEmCentavos);
+  const base = [usuarioId, descricao, movimento.tipo, movimento.valorEmCentavos, movimento.data];
+  if (movimento.categoriaId !== undefined && movimento.categoriaId !== null) {
+    return {
+      sql: `INSERT INTO movimentacoes (usuario_id, descricao, tipo, valor_em_centavos, data, categoria_id)
+        VALUES (?, ?, ?, ?, ?, ?)`,
+      args: [...base, movimento.categoriaId],
+    };
+  }
   return {
-    inserir(usuarioId: number, movimento: NovaMovimentacao): number {
-      const descricao = normalizarDescricaoMovimentacao(movimento.descricao);
-      validarValorEmCentavos(movimento.valorEmCentavos);
-      if (movimento.categoriaId !== undefined && movimento.categoriaId !== null) {
-        validarCategoriaDoUsuario(db, usuarioId, movimento.categoriaId);
-        const comCategoria = db.prepare(`
-          INSERT INTO movimentacoes (usuario_id, descricao, tipo, valor_em_centavos, data, categoria_id)
-          VALUES (?, ?, ?, ?, ?, ?)
-        `).run(usuarioId, descricao, movimento.tipo, movimento.valorEmCentavos, movimento.data, movimento.categoriaId);
-        return Number(comCategoria.lastInsertRowid);
-      }
-      const resultado = db.prepare(`
-        INSERT INTO movimentacoes (usuario_id, descricao, tipo, valor_em_centavos, data)
-        VALUES (?, ?, ?, ?, ?)
-      `).run(usuarioId, descricao, movimento.tipo, movimento.valorEmCentavos, movimento.data);
-      return Number(resultado.lastInsertRowid);
-    },
-    listar(usuarioId: number) {
-      return db.prepare(`
-        SELECT id, descricao, tipo, valor_em_centavos AS valorEmCentavos, data, categoria_id AS categoriaId
-        FROM movimentacoes WHERE usuario_id = ? ORDER BY data, id
-      `).all(usuarioId) as unknown as Lancamento[];
-    },
+    sql: `INSERT INTO movimentacoes (usuario_id, descricao, tipo, valor_em_centavos, data)
+      VALUES (?, ?, ?, ?, ?)`,
+    args: base,
   };
 }
 
+// usuarioId deve vir da autenticação, nunca do corpo da requisição.
+export function criarRepositorioMovimentacoes(db: Banco) {
+  return {
+    async inserir(usuarioId: number, movimento: NovaMovimentacao): Promise<number> {
+      const comando = comandoInserirMovimentacao(usuarioId, movimento);
+      if (movimento.categoriaId !== undefined && movimento.categoriaId !== null) {
+        await validarCategoriaDoUsuario(db, usuarioId, movimento.categoriaId);
+      }
+      const resultado = await db.execute(comando);
+      return Number(resultado.lastInsertRowid);
+    },
+    async listar(usuarioId: number): Promise<Lancamento[]> {
+      const { rows } = await db.execute({
+        sql: `SELECT id, descricao, tipo, valor_em_centavos AS valorEmCentavos, data, categoria_id AS categoriaId
+          FROM movimentacoes WHERE usuario_id = ? ORDER BY data, id`,
+        args: [usuarioId],
+      });
+      return rows as unknown as Lancamento[];
+    },
+  };
+}

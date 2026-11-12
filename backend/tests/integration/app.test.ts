@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
-import type { DatabaseSync } from "node:sqlite";
+import type { Client } from "@libsql/client";
 import { app, createApp } from "../../src/app.js";
 import type { CriarUsuario } from "../../src/controllers/createUserController.js";
 import { abrirBanco } from "../../src/database/conexao.js";
@@ -8,8 +8,8 @@ import { createSqliteGoalRepository } from "../../src/features/goals/infrastruct
 import { criarRepositorioSessoes } from "../../src/repositories/sessoes.js";
 import { criarRepositorioCredenciais } from "../../src/repositories/credenciais.js";
 
-let db: DatabaseSync;
-beforeEach(() => { db = abrirBanco(":memory:"); });
+let db: Client;
+beforeEach(async () => { db = await abrirBanco(":memory:"); });
 afterEach(() => db.close());
 
 const dadosUsuario = { nome: "Ana", email: "ana@example.test", senha: "senha-teste-123" };
@@ -20,10 +20,12 @@ describe("Montagem conjunta de metas e usuários", () => {
     const criarUsuario = vi.fn<CriarUsuario>().mockResolvedValue({
       id: 1, nome: dadosUsuario.nome, email: dadosUsuario.email,
     });
-    db.prepare("INSERT INTO usuarios (id, nome, email, senha_hash) VALUES (?, ?, ?, ?)")
-      .run(1, dadosUsuario.nome, dadosUsuario.email, "hash-teste");
+    await db.execute({
+      sql: "INSERT INTO usuarios (id, nome, email, senha_hash) VALUES (?, ?, ?, ?)",
+      args: [1, dadosUsuario.nome, dadosUsuario.email, "hash-teste"],
+    });
     const sessoes = criarRepositorioSessoes(db);
-    const cookie = `sessao=${sessoes.criar(1).token}`;
+    const cookie = `sessao=${(await sessoes.criar(1)).token}`;
     const application = createApp({
       metasDoUsuario: (usuarioId) => createSqliteGoalRepository(db, usuarioId),
       autenticacao: { credenciais: criarRepositorioCredenciais(db), sessoes, cookieSeguro: false },

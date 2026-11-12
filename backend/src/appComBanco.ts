@@ -1,4 +1,4 @@
-import type { DatabaseSync } from "node:sqlite";
+import type { Banco } from "./database/conexao.js";
 import { createApp } from "./app.js";
 import { createSqliteGoalRepository } from "./features/goals/infrastructure/sqlite-goal-repository.js";
 import { createSqliteUserRepository } from "./repositories/sqliteUserRepository.js";
@@ -17,7 +17,7 @@ interface OpcoesApp {
   pastaFrontend?: string;
 }
 
-export function createAppComBanco(db: DatabaseSync, { cookieSeguro = false, pastaFrontend }: OpcoesApp = {}) {
+export function createAppComBanco(db: Banco, { cookieSeguro = false, pastaFrontend }: OpcoesApp = {}) {
   const usuarios = createSqliteUserRepository(db);
   return createApp({
     movimentacoes: criarRepositorioMovimentacoes(db),

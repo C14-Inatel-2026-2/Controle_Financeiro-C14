@@ -11,7 +11,7 @@ const derivarChave = promisify(scrypt);
 // e não revelar quais e-mails estão cadastrados.
 const HASH_FICTICIO = `scrypt:${"0".repeat(32)}:${"0".repeat(128)}`;
 
-export type BuscarCredenciais = (email: string) => Credenciais | undefined;
+export type BuscarCredenciais = (email: string) => Promise<Credenciais | undefined>;
 
 export function lerDadosLogin(corpo: unknown): { email: string; senha: string } {
   if (typeof corpo !== "object" || corpo === null || Array.isArray(corpo)) {
@@ -38,7 +38,7 @@ async function senhaConfere(senha: string, senhaHash: string): Promise<boolean> 
 
 export async function loginService(corpo: unknown, buscar: BuscarCredenciais): Promise<Usuario> {
   const { email, senha } = lerDadosLogin(corpo);
-  const credenciais = buscar(normalizarEmail(email));
+  const credenciais = await buscar(normalizarEmail(email));
   const confere = await senhaConfere(senha, credenciais?.senha_hash ?? HASH_FICTICIO);
   if (!credenciais || !confere) throw new CredenciaisInvalidasError();
   return { id: credenciais.id, nome: credenciais.nome, email: credenciais.email };

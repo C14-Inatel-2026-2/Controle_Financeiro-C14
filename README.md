@@ -16,7 +16,7 @@ O público-alvo são pessoas que querem acompanhar as próprias finanças sem re
 
 O projeto é composto por:
 
-- **Backend** (`backend/`): API em Node.js com Express e TypeScript, persistência em SQLite (`node:sqlite`) e testes com Vitest.
+- **Backend** (`backend/`): API em Node.js com Express e TypeScript, persistência SQLite pelo cliente oficial libSQL (`@libsql/client`): arquivo local no desenvolvimento e no Docker, Turso na hospedagem. Testes com Vitest.
 - **Frontend** (`frontend/`): aplicação React com Vite e TypeScript.
 - **Integração contínua** (`infra/jenkins/`, `Jenkinsfile`): Jenkins em Docker executando builds, testes e a publicação da imagem da aplicação no Docker Hub (`bunnyzzw/controle-financeiro-c14`).
 
@@ -30,12 +30,12 @@ Basta ter Docker compatível com `linux/amd64`. Não é preciso clonar o projeto
 
 - O Docker Hub mantém a imagem disponível mesmo com o computador do Caio desligado.
 - A aplicação roda no computador que inicia o contêiner. Cada instalação tem o próprio banco, guardado no volume `controle-financeiro-dados`.
-- O Docker Hub só distribui a imagem. Um endereço público do site em execução exigiria uma hospedagem adicional, que o projeto não tem.
+- O Docker Hub só distribui a imagem. A hospedagem pública no Render gratuito, com o banco no Turso, está preparada, mas ainda não foi publicada nem validada ([guia](docs/ci-cd/deploy.md#hospedagem-pública-no-render-com-turso)).
 - Antes de apresentar, leia as [limitações para quem for demonstrar](docs/ci-cd/deploy.md#limitações-para-quem-for-demonstrar). A principal é que, na tag publicada, a tela de login ainda não chama a API. O login pela tela já está no código e entra na próxima imagem publicada.
 
 ### Desenvolver o projeto
 
-É preciso ter Git e Node.js 24 (o `node:sqlite` exige pelo menos o 22.13). Em dois terminais PowerShell, a partir da raiz do repositório:
+É preciso ter Git e Node.js 24, a mesma versão principal do Jenkins. Em dois terminais PowerShell, a partir da raiz do repositório:
 
 ```powershell
 # Terminal 1: API em http://localhost:3000, banco em backend\data\financeiro.sqlite
@@ -51,7 +51,7 @@ npm ci
 npm run dev
 ```
 
-Antes de abrir um PR, rode `npm run test:unit`, `npm run test:integration`, `npm run test:coverage` e `npm run build` em `backend`, e `npm test`, `npm run lint` e `npm run build` em `frontend`. O arquivo do banco não é versionado. Guias por assunto: [autenticação](docs/autenticacao.md), [categorias e movimentações](docs/categorias.md), [metas](docs/us05-metas-financeiras.md) e [importação de faturas](backend/src/features/invoice-import/README.md).
+Sem variáveis do Turso, o backend usa o arquivo local. Defina `TURSO_DATABASE_URL` e `TURSO_AUTH_TOKEN` só para usar o banco remoto ([guia do banco](backend/src/database/README.md)). Antes de abrir um PR, rode `npm run test:unit`, `npm run test:integration`, `npm run test:coverage` e `npm run build` em `backend`, e `npm test`, `npm run lint` e `npm run build` em `frontend`. O arquivo do banco não é versionado. Guias por assunto: [autenticação](docs/autenticacao.md), [categorias e movimentações](docs/categorias.md), [metas](docs/us05-metas-financeiras.md) e [importação de faturas](backend/src/features/invoice-import/README.md).
 
 ### Executar o Jenkins e publicar novas imagens
 
@@ -123,7 +123,7 @@ Não há metas de desempenho, de cobertura mínima ou de disponibilidade definid
 ### RNF04 - Persistência
 
 - **Pretendido**: os dados financeiros permanecem salvos entre execuções e o esquema do banco evolui por migrations sem perda de dados.
-- **Evidência por inspeção**: o SQLite é aberto com chaves estrangeiras habilitadas e as migrations 1 a 5 são aplicadas uma única vez cada: usuários e movimentações, metas, importações de faturas, sessões e categorias. Os testes de integração verificam que reaplicar as migrations preserva os dados. O arquivo do banco não é versionado. Na imagem Docker, o banco fica em `/data/financeiro.sqlite`, num volume.
+- **Evidência por inspeção**: o banco é aberto pelo cliente libSQL, com chaves estrangeiras habilitadas, e as migrations 1 a 6 são aplicadas uma única vez cada, cada uma numa transação (`batch`): usuários e movimentações, metas, importações de faturas, sessões, categorias e metas por usuário. Os testes de integração verificam que reaplicar as migrations preserva os dados. O arquivo do banco não é versionado. Na imagem Docker, o banco fica em `/data/financeiro.sqlite`, num volume. Na hospedagem planejada no Render, fica no Turso ([guia](docs/ci-cd/deploy.md#onde-ficam-os-dados)).
 - **Comprovado por execução (testes automatizados)**: esse teste faz parte do job `backend-integration-coverage`, concluído com sucesso na execução de 17/10/2026. Ele usa banco em memória (`:memory:`) e, portanto, não verifica a gravação em arquivo.
 - **Comprovado por execução (validação manual)**: em 17/10/2026, na branch `Branch-Donatto`, o grupo criou um registro fictício na tabela `usuarios` do arquivo SQLite publicado pelo deploy, executou novamente a pipeline completa com deploy, consultou o registro, que manteve o mesmo id e o mesmo nome, e depois o removeu. O procedimento está documentado em [registro do deploy anterior](docs/ci-cd/deploy.md#versão-anterior-deploy-em-pasta-do-agente). Isso comprova que o arquivo do banco é preservado entre deploys.
 - **Comprovado por execução (imagem Docker)**: o `backend-deploy` #3 (commit `5060557`) recriou o contêiner com o mesmo volume e confirmou que usuário, sessão e categorias continuavam salvos, tudo gravado pela API. Na verificação local de 10/11/2026, o mesmo teste também preservou as movimentações.

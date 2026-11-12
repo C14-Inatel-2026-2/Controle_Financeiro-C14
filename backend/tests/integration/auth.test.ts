@@ -1,15 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import request from "supertest";
-import type { DatabaseSync } from "node:sqlite";
+import type { Client } from "@libsql/client";
 import { createAppComBanco } from "../../src/appComBanco.js";
 import { createApp } from "../../src/app.js";
 import { abrirBanco, migrarBanco } from "../../src/database/conexao.js";
 import { criarRepositorioCredenciais } from "../../src/repositories/credenciais.js";
 import { criarRepositorioSessoes, DURACAO_SESSAO_MS } from "../../src/repositories/sessoes.js";
 import { criarRepositorioMovimentacoes } from "../../src/repositories/movimentacoes.js";
+import { linhas } from "../helpers/banco.js";
 
-let db: DatabaseSync;
-beforeEach(() => { db = abrirBanco(":memory:"); });
+let db: Client;
+beforeEach(async () => { db = await abrirBanco(":memory:"); });
 afterEach(() => db.close());
 
 const ana = { nome: "Ana", email: "ana@example.test", senha: "senha-da-ana" };
@@ -40,7 +41,7 @@ describe("POST /auth/login", () => {
     expect(cookie).not.toContain("Secure");
 
     const token = cookie.split(";")[0].split("=")[1];
-    const sessoes = db.prepare("SELECT token_hash, usuario_id FROM sessoes").all();
+    const sessoes = await linhas(db, "SELECT token_hash, usuario_id FROM sessoes");
     expect(sessoes).toEqual([{ token_hash: expect.stringMatching(/^[a-f0-9]{64}$/), usuario_id: 1 }]);
     expect(sessoes[0]!.token_hash).not.toBe(token);
   });
@@ -66,7 +67,7 @@ describe("POST /auth/login", () => {
       expect(resposta.body).toEqual({ erro: { codigo: "INVALID_CREDENTIALS", mensagem: "E-mail ou senha incorretos." } });
       expect(resposta.headers["set-cookie"]).toBeUndefined();
     }
-    expect(db.prepare("SELECT * FROM sessoes").all()).toEqual([]);
+    expect(await linhas(db, "SELECT * FROM sessoes")).toEqual([]);
   });
 
   it.each([{}, { email: ana.email }, { email: "", senha: "x" }, { email: ana.email, senha: 123 }])(
@@ -92,20 +93,20 @@ describe("Sessão nas rotas protegidas", () => {
     const app = createAppComBanco(db);
     const cookie = await cadastrarEEntrar(app, ana);
     expect((await request(app).get("/auth/me").set("Cookie", cookie)).status).toBe(200);
-    db.prepare("UPDATE sessoes SET expira_em = ?").run(Date.now() - 1);
+    await db.execute({ sql: "UPDATE sessoes SET expira_em = ?", args: [Date.now() - 1] });
     expect((await request(app).get("/auth/me").set("Cookie", cookie)).status).toBe(401);
   });
 
-  it("o repositório expira a sessão no prazo definido", () => {
-    db.prepare("INSERT INTO usuarios (id, nome, email, senha_hash) VALUES (1, 'Ana', 'ana@example.test', 'hash-teste')").run();
+  it("o repositório expira a sessão no prazo definido", async () => {
+    await db.execute("INSERT INTO usuarios (id, nome, email, senha_hash) VALUES (1, 'Ana', 'ana@example.test', 'hash-teste')");
     let agora = 1_000;
     const sessoes = criarRepositorioSessoes(db, () => agora);
-    const { token, expiraEm } = sessoes.criar(1);
+    const { token, expiraEm } = await sessoes.criar(1);
     expect(expiraEm).toBe(1_000 + DURACAO_SESSAO_MS);
     agora = expiraEm - 1;
-    expect(sessoes.buscarUsuarioId(token)).toBe(1);
+    expect(await sessoes.buscarUsuarioId(token)).toBe(1);
     agora = expiraEm;
-    expect(sessoes.buscarUsuarioId(token)).toBeUndefined();
+    expect(await sessoes.buscarUsuarioId(token)).toBeUndefined();
   });
 
   it("logout invalida a sessão no servidor e limpa o cookie", async () => {
@@ -115,7 +116,7 @@ describe("Sessão nas rotas protegidas", () => {
 
     expect(saida.status).toBe(204);
     expect(saida.headers["set-cookie"][0]).toMatch(/^sessao=;.*Expires=Thu, 01 Jan 1970/);
-    expect(db.prepare("SELECT * FROM sessoes").all()).toEqual([]);
+    expect(await linhas(db, "SELECT * FROM sessoes")).toEqual([]);
     // Reusar o cookie antigo não funciona mais, mesmo que o navegador não o apague.
     expect((await request(app).get("/auth/me").set("Cookie", cookie)).status).toBe(401);
     expect((await request(app).post("/auth/logout")).status).toBe(204);
@@ -130,7 +131,7 @@ describe("Sessão nas rotas protegidas", () => {
   });
 });
 
-describe("Confirmação de fatura autenticada com SQLite", () => {
+describe("Confirmação de fatura autenticada com libSQL", () => {
   it("grava os lançamentos para a conta da sessão e isola as contas", async () => {
     const app = createAppComBanco(db);
     const cookieAna = await cadastrarEEntrar(app, ana);
@@ -150,8 +151,8 @@ describe("Confirmação de fatura autenticada com SQLite", () => {
     expect(daAna.body).toMatchObject({ importedCount: 2, totalInCents: 16590 });
 
     const movimentacoes = criarRepositorioMovimentacoes(db);
-    expect(movimentacoes.listar(1)).toHaveLength(2);
-    expect(movimentacoes.listar(2)).toEqual([]);
+    expect(await movimentacoes.listar(1)).toHaveLength(2);
+    expect(await movimentacoes.listar(2)).toEqual([]);
 
     const repetida = await request(app).post("/invoice-imports/confirm").set("Cookie", cookieAna).send(confirmar);
     expect(repetida.status).toBe(409);
@@ -159,8 +160,8 @@ describe("Confirmação de fatura autenticada com SQLite", () => {
 
     const daBia = await request(app).post("/invoice-imports/confirm").set("Cookie", cookieBia).send(confirmar);
     expect(daBia.status).toBe(201);
-    expect(movimentacoes.listar(1)).toHaveLength(2);
-    expect(movimentacoes.listar(2)).toHaveLength(2);
+    expect(await movimentacoes.listar(1)).toHaveLength(2);
+    expect(await movimentacoes.listar(2)).toHaveLength(2);
   });
 
   it("informa que a confirmação está disponível", async () => {
@@ -170,18 +171,18 @@ describe("Confirmação de fatura autenticada com SQLite", () => {
 });
 
 describe("Migration 4 (sessões)", () => {
-  it("adiciona a tabela a um banco na versão 3 e preserva os registros", () => {
-    db.exec(`DROP INDEX movimentacoes_categoria; ALTER TABLE movimentacoes DROP COLUMN categoria_id; DROP TABLE categorias;
+  it("adiciona a tabela a um banco na versão 3 e preserva os registros", async () => {
+    await db.executeMultiple(`DROP INDEX movimentacoes_categoria; ALTER TABLE movimentacoes DROP COLUMN categoria_id; DROP TABLE categorias;
       DROP TABLE sessoes; DELETE FROM migrations WHERE versao >= 4;
       INSERT INTO usuarios (id, nome, email, senha_hash) VALUES (1, 'Ana', 'ana@example.test', 'hash-teste');
       INSERT INTO movimentacoes (usuario_id, descricao, tipo, valor_em_centavos, data)
         VALUES (1, 'Salário', 'receita', 10000, '2026-10-01');`);
-    migrarBanco(db);
-    migrarBanco(db);
-    expect(db.prepare("SELECT * FROM usuarios").all()).toHaveLength(1);
-    expect(db.prepare("SELECT * FROM movimentacoes").all()).toHaveLength(1);
-    expect(db.prepare("SELECT * FROM sessoes").all()).toEqual([]);
-    expect(db.prepare("SELECT versao FROM migrations ORDER BY versao").all())
+    await migrarBanco(db);
+    await migrarBanco(db);
+    expect(await linhas(db, "SELECT * FROM usuarios")).toHaveLength(1);
+    expect(await linhas(db, "SELECT * FROM movimentacoes")).toHaveLength(1);
+    expect(await linhas(db, "SELECT * FROM sessoes")).toEqual([]);
+    expect(await linhas(db, "SELECT versao FROM migrations ORDER BY versao"))
       .toEqual([{ versao: 1 }, { versao: 2 }, { versao: 3 }, { versao: 4 }, { versao: 5 }, { versao: 6 }]);
   });
 });

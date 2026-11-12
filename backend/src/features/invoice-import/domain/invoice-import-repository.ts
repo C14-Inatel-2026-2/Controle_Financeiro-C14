@@ -13,7 +13,7 @@ export interface ImportReceipt {
 
 // O adaptador deve salvar o registro da importação e todos os lançamentos atomicamente.
 export interface InvoiceImportRepository {
-  save(userId: number, preview: ImportPreview): ImportReceipt;
+  save(userId: number, preview: ImportPreview): Promise<ImportReceipt>;
 }
 
 export class DuplicateInvoiceError extends Error {}
