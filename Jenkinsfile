@@ -111,7 +111,16 @@ timeout(time: 60, unit: 'MINUTES') {
             error "backend-deploy #${deploy.number} terminou sem comprovar a publicação de ${commit}. Descrição: '${descricao}'"
         }
         echo "Imagem publicada: ${descricao}"
-        digestPublicado = descricao.tokenize('|')*.trim().find { it.startsWith('digest=') }.substring('digest='.length())
+        // Laço simples: o CPS do Jenkins não aceita o operador spread (*.) e não precisa de closure aqui.
+        for (parte in descricao.tokenize('|')) {
+            def campo = parte.trim()
+            if (campo.startsWith('digest=')) {
+                digestPublicado = campo.substring('digest='.length())
+            }
+        }
+        if (!(digestPublicado ==~ /\S+@sha256:[0-9a-f]{64}/)) {
+            error "Não foi possível ler o digest publicado na descrição do backend-deploy: '${descricao}'"
+        }
     }
 
     // Produção: só a main pede ao Render o deploy da imagem exata comprovada acima.
