@@ -6,6 +6,7 @@ import { SessaoExpiradaError } from "../services/ServicoDeAutenticacao";
 
 // Fora do componente: uma instância nova a cada render dispararia o useEffect de novo.
 const servicoPadrao = new ServicoDeCategorias();
+const LIMITE_NOME_CATEGORIA = 50;
 
 type Props = PropsDaSessao & {
   aoNavegar: (tela: Tela) => void;
@@ -45,6 +46,10 @@ export function Categorias({ aoNavegar, usuario, aoSair, aoSessaoExpirada, servi
     if (salvando) return;
     if (nome.trim() === "") {
       setErroNome("Informe o nome da categoria.");
+      return;
+    }
+    if (nome.trim().length > LIMITE_NOME_CATEGORIA) {
+      setErroNome(`O nome da categoria deve ter no máximo ${LIMITE_NOME_CATEGORIA} caracteres.`);
       return;
     }
     setErroNome("");
@@ -99,6 +104,7 @@ export function Categorias({ aoNavegar, usuario, aoSair, aoSessaoExpirada, servi
               <input
                 className={erroNome ? "invalido" : ""}
                 placeholder="Ex.: Alimentação"
+                maxLength={LIMITE_NOME_CATEGORIA}
                 value={nome}
                 onChange={(e) => setNome(e.target.value)}
               />
@@ -129,7 +135,7 @@ export function Categorias({ aoNavegar, usuario, aoSair, aoSessaoExpirada, servi
               <div className="ap-categoria-topo">
                 <span className="ap-categoria-nome">
                   <span className="ap-ponto" style={{ background: CORES[indice % CORES.length] }} />
-                  {categoria.name}
+                  <span className="ap-categoria-texto">{categoria.name}</span>
                 </span>
               </div>
             </div>

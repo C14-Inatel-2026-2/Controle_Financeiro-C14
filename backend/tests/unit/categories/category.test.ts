@@ -6,6 +6,12 @@ import {
 } from "../../../src/features/categories/domain/category.js";
 
 describe("createCategory", () => {
+  it("rejeita 51 caracteres com erro específico de categoria", () => {
+    const criar = () => createCategory("Alimentação".padEnd(51, "x"));
+    expect(criar).toThrow(InvalidCategoryNameError);
+    expect(criar).toThrow("O nome da categoria deve ter no máximo 50 caracteres.");
+  });
+
   it("deve criar categoria com nome valido", () => {
     const category = createCategory(" Alimentacao ");
 

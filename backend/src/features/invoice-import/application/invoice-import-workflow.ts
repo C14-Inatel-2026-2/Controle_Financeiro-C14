@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { LIMITE_DESCRICAO_MOVIMENTACAO } from "../../../models/descricaoMovimentacao.js";
 import type { InvoiceImportService } from "./invoice-import-service.js";
 import type { InvoiceImportRequest } from "../domain/invoice.js";
 import { InvoiceParseError } from "../domain/invoice-errors.js";
@@ -20,7 +21,12 @@ export class InvoiceImportWorkflow {
   async preview(request: InvoiceImportRequest): Promise<ImportPreview> {
     // O profile confere o total original do PDF antes de descartarmos estornos.
     const original = await this.reader.preview(request);
-    const entries = original.entries.filter(entry => entry.amountInCents >= 0);
+    const entries = original.entries.filter(entry => entry.amountInCents >= 0).map(entry => ({
+      ...entry,
+      // Não deixa metade de um caractere UTF-16 (como um emoji) na borda do corte.
+      description: entry.description.slice(0, LIMITE_DESCRICAO_MOVIMENTACAO)
+        .replace(/[\uD800-\uDBFF]$/, "").trimEnd(),
+    }));
     if (entries.length === 0) {
       throw new InvoiceParseError("A fatura não possui lançamentos não negativos para importar.");
     }
@@ -31,6 +37,7 @@ export class InvoiceImportWorkflow {
 
     // A identidade é da fatura inteira. Ordenar não remove compras repetidas.
     // Nome de arquivo, senha, ordem das linhas e formatação monetária não fazem parte dela.
+    // Usamos as descrições completas para preservar a identificação de importações anteriores.
     const canonicalEntries = original.entries.map(entry => JSON.stringify([
       entry.occurredOn, entry.description, entry.amountInCents,
     ])).sort();

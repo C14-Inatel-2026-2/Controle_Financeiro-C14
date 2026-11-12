@@ -5,6 +5,19 @@ import { FakeUserRepository } from "../mocks/fakeUserRepository";
 const dadosValidos = { nome: " José ", email: " JOSE@example.test ", senha: "12345678" };
 
 describe("createUserService", () => {
+  it("rejeita nome com 101 caracteres antes de consultar ou gravar", async () => {
+    const repository = new FakeUserRepository();
+    const buscar = vi.spyOn(repository, "buscarPorEmail");
+    const inserir = vi.spyOn(repository, "inserir");
+    await expect(createUserService({
+      nome: "Cristiano Ronaldo".padEnd(101, "x"), email: "cristiano.ronaldo@example.test", senha: "12345678",
+    }, repository)).rejects.toMatchObject({
+      message: "O nome deve ter no máximo 100 caracteres.", campo: "nome",
+    });
+    expect(buscar).not.toHaveBeenCalled();
+    expect(inserir).not.toHaveBeenCalled();
+  });
+
   it("cadastra usuário válido, normaliza os dados e persiste somente o hash", async () => {
     const repository = new FakeUserRepository();
     const inserir = vi.spyOn(repository, "inserir");

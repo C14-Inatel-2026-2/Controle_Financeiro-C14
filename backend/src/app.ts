@@ -10,6 +10,7 @@ import { createDefaultInvoiceImportService } from "./features/invoice-import/ind
 import type { InvoiceIdentity } from "./controllers/createInvoiceController.js";
 import { createAuthRouter, type Autenticacao } from "./routes/authRoutes.js";
 import { carregarSessao } from "./middlewares/sessao.js";
+import { tratarErrosDaApi } from "./middlewares/tratarErrosDaApi.js";
 import { createCategoryRouter, type CategoriasDoUsuario } from "./routes/categoryRoutes.js";
 
 import { criarRouterMovimentacoes, type RepositorioMovimentacoes } from "./routes/movimentacoes.js";
@@ -72,6 +73,10 @@ export function createApp({
       });
     });
   }
+
+  // Ao final do router, trata erros das rotas e da leitura do corpo,
+  // tanto nos caminhos com /api quanto nos caminhos sem esse prefixo.
+  api.use(tratarErrosDaApi);
 
   const app = express();
 

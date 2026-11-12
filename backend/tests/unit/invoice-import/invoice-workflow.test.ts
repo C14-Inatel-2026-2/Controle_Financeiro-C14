@@ -18,6 +18,16 @@ function setup() {
   return { reader, repository, workflow: new InvoiceImportWorkflow(reader, repository) };
 }
 describe("InvoiceImportWorkflow", () => {
+  it("confirma a mesma descrição reduzida apresentada na prévia", async () => {
+    const { workflow, reader, repository } = setup();
+    const description = "Cristiano Ronaldo ".padEnd(240, "x");
+    reader.preview.mockResolvedValue({ ...original, entries: [{ ...original.entries[0], description }] });
+    const preview = await workflow.preview(request);
+    await workflow.confirm(7, request, preview.fingerprint);
+    expect(repository.save).toHaveBeenCalledExactlyOnceWith(7, preview);
+    expect(preview.entries[0].description).toBe(description.slice(0, 200));
+  });
+
   it("descarta negativos após a leitura, recalcula o total e não salva na prévia", async () => {
     const { workflow, reader, repository } = setup();
     const result = await workflow.preview(request);

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import {
   ValidadorDeCadastro,
+  LIMITE_NOME_USUARIO,
   type ErrosCadastro,
 } from "../utils/ValidadorDeCadastro";
 import { ServicoDeCadastro } from "../services/ServicoDeCadastro";
@@ -82,6 +83,7 @@ export function Cadastro({ aoEntrar, aoVoltarInicio, servico = new ServicoDeCada
             <input
               className={erros.nome ? "invalido" : ""}
               placeholder="Seu nome"
+              maxLength={LIMITE_NOME_USUARIO}
               value={nome}
               onChange={(e) => setNome(e.target.value)}
             />

@@ -942,12 +942,20 @@ button:disabled {
   font-family: "Space Grotesk", system-ui, sans-serif;
   font-size: 16px;
   font-weight: 600;
+  min-width: 0;
+}
+
+/* Textos antigos podem exceder o limite atual e precisam caber no cartão. */
+.ap-categoria-texto {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .ap-ponto {
   width: 10px;
   height: 10px;
   border-radius: 50%;
+  flex-shrink: 0;
 }
 
 .ap-categoria-valor {

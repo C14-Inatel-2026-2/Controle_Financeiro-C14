@@ -14,6 +14,7 @@
 .invoice-page .invoice-success { color: #9eeccf; padding: 12px; background: #17352b; }
 .invoice-table { overflow-x: auto; }
 .invoice-table table { width: 100%; border-collapse: collapse; }
+.invoice-table td:nth-child(2) { overflow-wrap: anywhere; }
 .invoice-table th, .invoice-table td { text-align: left; padding: 12px 8px; border-bottom: 1px solid #303640; }
 .invoice-table td:last-child { white-space: nowrap; }
 .invoice-page summary { cursor: pointer; color: #8eefd1; }
