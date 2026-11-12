@@ -26,9 +26,9 @@ Veja o [guia rápido](#guia-rápido-executar-a-imagem-publicada).
   computador ligado. Para publicar sem ele, veja
   [Quem pode executar e publicar](../jenkins/README.md#quem-pode-executar-e-publicar).
 - **Endereço público do site:** o Docker Hub não hospeda a aplicação em
-  execução. A hospedagem no Render gratuito, com o banco no Turso, está
-  preparada no código, mas **ainda não foi publicada nem validada**. Veja
-  [Hospedagem pública no Render com Turso](#hospedagem-pública-no-render-com-turso).
+  execução. O site fica no Render gratuito, com o banco no Turso:
+  <https://controle-financeiro-c14.onrender.com>. Ele não depende do PC do Caio.
+  Veja [Hospedagem pública no Render com Turso](#hospedagem-pública-no-render-com-turso).
 
 ## O que o job faz, em ordem
 
@@ -74,14 +74,15 @@ e nada é publicado.
 ## Guia rápido: executar a imagem publicada
 
 Só é preciso o Docker Desktop. Os comandos são para PowerShell e podem ser
-executados em qualquer pasta. O exemplo usa a tag já publicada e comprovada
-(veja [Evidências registradas](#evidências-registradas)):
+executados em qualquer pasta. Para só usar o sistema, o [site público](#hospedagem-pública-no-render-com-turso)
+é mais simples. A imagem serve para rodar uma cópia própria, com banco próprio.
 
-- Tag: `5060557ebf4a6ac645b440cf81386703898ec6f6`
-- Digest: `sha256:992615103d321f93dd9e8ef86aece8ee7a56eff828267575fc9c7dd393f19d3b`
-
-`latest` ainda não foi publicada: ela só aparece depois de uma pipeline na
-`main`. Use sempre a tag do SHA para saber exatamente qual versão está rodando.
+O exemplo usa `latest`, a imagem mais recente publicada por uma `pipeline-completa`
+da `main`. Na conferência de 12/11/2026 no Docker Hub, `latest` tinha o digest
+`sha256:6c0d22c9b9693d18af6bcaf27d8bdc55f2828b02271edbfea966489d4c983b8e`, o
+mesmo da tag `b6a28fe94e909881ccfe72ba6df317db91f11ba8` (merge do PR #51). Como
+`latest` muda a cada publicação da `main`, use a tag do SHA quando precisar
+saber exatamente qual versão está rodando.
 
 ### 1. Conferir o Docker Desktop
 
@@ -97,11 +98,13 @@ só tem a plataforma `linux/amd64`.
 ### 2. Baixar a imagem pela tag do SHA
 
 ```powershell
-$IMAGEM = "bunnyzzw/controle-financeiro-c14:5060557ebf4a6ac645b440cf81386703898ec6f6"
+$IMAGEM = "bunnyzzw/controle-financeiro-c14:latest"
+# Ou uma versão fixa: "bunnyzzw/controle-financeiro-c14:<SHA-completo>"
 docker pull $IMAGEM
 ```
 
-A última linha do `docker pull` mostra o `Digest`, que deve ser o digest acima.
+A última linha do `docker pull` mostra o `Digest`. Ele deve ser igual ao da
+mesma tag no Docker Hub ou ao registrado em `imagem-publicada.txt` pelo Jenkins.
 
 ### 3. Iniciar o contêiner
 
@@ -193,35 +196,41 @@ definitivamente.**
 
 ### Limitações para quem for demonstrar
 
-Na tag `5060557…`:
+Valem para o site público e para as imagens da `main` posteriores ao PR #47
+(conferido no código em 12/11/2026). Cadastro, login, sessão, categorias,
+lançamentos, Dashboard com filtro de mês e importação funcionam pela interface.
+Ainda assim:
 
-- **Funciona na interface:** página inicial, cadastro de conta (grava no banco) e
+- **Metas não têm tela.** A API de metas funciona com a sessão, mas o atalho
+  Metas da Início fica desabilitado e o progresso é sempre zero.
+- **Cartões de crédito** não existem (RF05 cancelado).
+- **Celular:** abaixo de 900 px o menu do topo fica oculto. Use o logo para
+  voltar à Início e os atalhos para trocar de tela. Em 375 px, login, cadastro,
+  Lançamentos e Dashboard ainda têm rolagem lateral.
+- **Importar fatura** não mostra o menu nem o botão Sair: volte pelo logo ou por
+  "← Voltar".
+- **Voltar do navegador** sai do app, porque as telas não têm endereço próprio.
+  F5 mantém a sessão.
+- **Primeiro acesso ao site** depois de um tempo parado pode levar cerca de um
+  minuto ([plano gratuito](#limitações-do-plano-gratuito)).
+
+#### Histórico: tag `5060557…`
+
+Registro das limitações daquela imagem, anterior ao login pela tela. Não use
+essa tag para demonstrar o projeto atual.
+
+- **Funcionava na interface:** página inicial, cadastro de conta (grava no banco) e
   prévia de faturas CSV e PDF do Itaú.
-- **A tela de login não chama a API.** Ela só confere se os campos foram
-  preenchidos e libera a navegação, sem criar sessão. Por isso:
-  - a tela de categorias mostra "Faça login para ver suas categorias.";
-  - confirmar uma importação de fatura responde 401.
-- **Dashboard e Home** mostram dados de exemplo fixos, e não os do banco.
-- **Movimentações** não existem nessa tag (`/api/movimentacoes` responde 404).
-  Elas entram na próxima imagem, que sai do merge com o trabalho do Igor. Nem
-  essa imagem terá uma tela de movimentações: o acesso é só pela API.
+- **A tela de login não chamava a API.** Ela só conferia se os campos estavam
+  preenchidos e liberava a navegação, sem criar sessão. Por isso, a tela de
+  categorias mostrava "Faça login para ver suas categorias." e confirmar uma
+  importação de fatura respondia 401.
+- **Dashboard e Home** mostravam dados de exemplo fixos.
+- **Movimentações** não existiam nessa tag (`/api/movimentacoes` respondia 404).
 
-Contorno para demonstrar categorias e a confirmação de faturas, sem alterar o
-código: depois de criar a conta pela tela, abra o console do navegador (F12 →
-Console) em `http://localhost:3000` e entre pela API. O cookie fica guardado
-para as telas seguintes:
-
-```javascript
-await fetch("/api/auth/login", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ email: "seu-email@example.test", senha: "sua-senha" }),
-}).then((resposta) => resposta.status)   // 200 = sessão criada
-```
-
-Apresente isso como um contorno. O [login pela tela](../autenticacao.md#login-pela-tela)
-já existe no código da `Branch-Caio`, mas só chega à imagem depois do merge e de
-uma nova publicação. Até lá, a tag `5060557…` continua com as limitações acima.
+Na época, a demonstração de categorias e da confirmação de faturas usava um
+login feito pelo console do navegador. Esse contorno não é mais necessário: o
+[login pela tela](../autenticacao.md#login-pela-tela) está na `main` desde o PR #36.
 
 ### Configuração da imagem
 
@@ -259,9 +268,11 @@ verificação do Jenkins testa as duas configurações.
 
 **Situação:** no ar em <https://controle-financeiro-c14.onrender.com>, com o
 banco no Turso. Segundo o Caio, as categorias continuaram salvas depois de uma
-troca de imagem. A atualização automática pelo Jenkins está descrita em
-[Publicar uma versão nova](#publicar-uma-versão-nova) e ainda precisa ser
-validada numa execução real da `pipeline-completa` na `main`.
+troca de imagem. A atualização automática pela `pipeline-completa` da `main` foi
+demonstrada em 12/11/2026, segundo o Caio (veja
+[Evidências registradas](#evidências-registradas)). Conferido diretamente na
+mesma data: `/api/health` responde, e o site serve o mesmo arquivo de frontend
+gerado pela `main` `b6a28fe`.
 
 ### Onde ficam os dados
 
@@ -376,7 +387,9 @@ O caminho de uma mudança até o site:
    usa a credencial `render-deploy-hook` e o script
    [solicitar-deploy-render.js](../../infra/jenkins/solicitar-deploy-render.js).
 6. **Render aceitou ≠ Live.** O Jenkins só registra que o Render **aceitou** o
-   pedido (HTTP 200 ou 202). Confira no Render (*Events*) se o deploy ficou
+   pedido (HTTP 200 ou 202). O check do PR (passo 1) não bloqueia o merge: a
+   `main` não tem proteção de branch, então o grupo confere o status antes de
+   integrar. Confira no Render (*Events*) se o deploy ficou
    **Live** com esse digest. Um `/health` que responde pode ainda ser da versão
    anterior.
 
@@ -547,7 +560,39 @@ Jenkins.
 
 ## Evidências registradas
 
-### Publicação comprovada do commit `5060557`
+Cada registro indica a origem: **informado pelo Caio** (prints e consoles
+guardados por ele, sem cópia neste repositório) ou **conferido diretamente**
+(fontes públicas consultadas na data indicada).
+
+### Fluxo automático da `main`, 12/11/2026
+
+**Informado pelo Caio:**
+
+| Item | Registro |
+| --- | --- |
+| Gatilho | Depois do merge do PR #50 (remoção das setas da Início), o `gatilho-main` #3 iniciou sozinho a `pipeline-completa` #15. |
+| Pipeline | `pipeline-completa` #15: `SUCCESS` |
+| Render | O deploy ficou **Live**, e a mudança apareceu no site público. |
+| Outras execuções | Na `Branch-Caio`, sem atualizar o Render: `pipeline-completa` #17 em `SUCCESS` no commit `903cbb0b` e #18 em `SUCCESS` no commit `8ed4a458`, antes e depois dos refactorings do Caio ([evidências anexadas no PR #51](https://github.com/C14-Inatel-2026-2/Controle_Financeiro-C14/pull/51)) |
+
+**Conferido diretamente em 12/11/2026:**
+
+- O merge do PR #50 na `main` é o commit `e9be294`. Ele é anterior à tela
+  Lançamentos e ao filtro de mês do Dashboard (PR #47, merge `903cbb0`), então
+  a #15 não cobre essas telas.
+- Docker Hub: `latest` e a tag `b6a28fe94e909881ccfe72ba6df317db91f11ba8`
+  (merge do PR #51) têm o digest
+  `sha256:6c0d22c9b9693d18af6bcaf27d8bdc55f2828b02271edbfea966489d4c983b8e`.
+- O site público serve `assets/index-DcBb0RLB.js`, o mesmo arquivo gerado por
+  um build local da `b6a28fe`. Isso comprova o frontend publicado, não a
+  versão do backend.
+- GitHub: o commit `8ed4a45` (PR #51) tem o status
+  `continuous-integration/jenkins/pr-head` = `success` (`pr-validacao`, PR-51 #1).
+
+A existência de uma tag no Docker Hub não informa o número nem o resultado da
+pipeline. Por isso, as execuções sem registro continuam em [Pendente](#pendente).
+
+### Publicação comprovada do commit `5060557` (histórico)
 
 Execução no Jenkins do PC do Caio, na `Branch-Caio`, **antes** da integração
 das movimentações do Igor (PR #34):
@@ -572,23 +617,14 @@ movimentações, que entraram depois.
 
 ### Pendente
 
-1. **Integração com as movimentações:** executar a `pipeline-completa` de novo
-   na `Branch-Caio`, depois do commit do merge com a `main`. O deploy dessa
-   execução passa a verificar também as movimentações.
-2. **Depois do merge do PR na `main`:** executar a `pipeline-completa` com
-   `BRANCH=main`. É essa execução que publica `latest`, se o SHA ainda for a
-   ponta da `main`.
-
-3. **Atualização automática do Render:** segundo o Caio, a `pipeline-completa`
-   da `main`, depois do PR #48, passou e o Render respondeu HTTP 200. Falta
-   registrar aqui o número da execução, o digest, o id `dep-…` de
-   `deploy-render.txt` e a confirmação, no painel do Render, de que esse digest
-   ficou **Live**.
-4. **Gatilho GitHub → Jenkins (`gatilho-main`):** validado só num Jenkins
-   descartável, com repositório local e uma `pipeline-completa` falsa. Depois do
-   merge, aplicar o job, registrar a primeira execução e comprovar que um commit
-   na `main` inicia a `pipeline-completa` sozinho
-   ([roteiro](../jenkins/README.md#gatilho-automático-da-main-gatilho-main)).
+1. **Detalhes da `pipeline-completa` #15:** SHA testado, digest de
+   `imagem-publicada.txt` e id `dep-…` de `deploy-render.txt`. Nunca registre a
+   URL do deploy hook.
+2. **`main` atual:** a `pipeline-completa` da `0bef6ac` (PR #52). Na conferência
+   de 12/11/2026, essa tag ainda não estava no Docker Hub.
+3. **Persistência no site público com lançamentos:** repetir o
+   [roteiro de teste](#4-testar-a-url-pública-e-a-persistência) com uma conta de
+   teste e registrar a data, o SHA e o resultado.
 
 Ao registrar cada execução, anote o número da pipeline e do deploy, o commit, a
 referência e o digest de `imagem-publicada.txt`.

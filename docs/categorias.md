@@ -39,7 +39,8 @@ As rotas de movimentações vieram do PR #34 (Igor), em
   existir no calendário.
 - `categoriaId` é opcional. Ausente ou `null`, o lançamento fica sem categoria.
 - Um `usuarioId` no corpo é ignorado.
-- Não há tela de movimentações: hoje o acesso é só pela API.
+- A tela Lançamentos (`frontend/src/pages/Movimentacoes.tsx`) usa essas rotas: converte o
+  valor em reais para centavos, oferece as categorias da conta e mostra o histórico.
 
 Testes: `backend/tests/integration/movimentacoes-http.test.ts` cobre os dois
 caminhos (`/movimentacoes` e `/api/movimentacoes`): exigência de login, gravação
