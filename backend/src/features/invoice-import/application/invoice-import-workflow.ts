@@ -1,12 +1,23 @@
 import { createHash } from "node:crypto";
 import { LIMITE_DESCRICAO_MOVIMENTACAO } from "../../../models/descricaoMovimentacao.js";
 import type { InvoiceImportService } from "./invoice-import-service.js";
-import type { InvoiceImportRequest } from "../domain/invoice.js";
+import type { InvoiceEntry, InvoiceImportRequest } from "../domain/invoice.js";
 import { InvoiceParseError } from "../domain/invoice-errors.js";
 import {
   InvoiceConfirmationUnavailableError, InvoicePreviewChangedError,
   InvoiceUserRequiredError, type ImportPreview, type InvoiceImportRepository,
 } from "../domain/invoice-import-repository.js";
+
+function calculateInvoiceFingerprint(entries: readonly InvoiceEntry[]): string {
+  // A identidade é da fatura inteira. Ordenar não remove compras repetidas.
+  // Nome de arquivo, senha, ordem das linhas e formatação monetária não fazem parte dela.
+  // Usamos as descrições completas para preservar a identificação de importações anteriores.
+  const canonicalEntries = entries.map(entry => JSON.stringify([
+    entry.occurredOn, entry.description, entry.amountInCents,
+  ])).sort();
+  return createHash("sha256")
+    .update(JSON.stringify(["invoice-v1", canonicalEntries])).digest("hex");
+}
 
 export class InvoiceImportWorkflow {
   constructor(
@@ -35,14 +46,7 @@ export class InvoiceImportWorkflow {
       throw new InvoiceParseError("O total da fatura ultrapassa o limite de precisão.");
     }
 
-    // A identidade é da fatura inteira. Ordenar não remove compras repetidas.
-    // Nome de arquivo, senha, ordem das linhas e formatação monetária não fazem parte dela.
-    // Usamos as descrições completas para preservar a identificação de importações anteriores.
-    const canonicalEntries = original.entries.map(entry => JSON.stringify([
-      entry.occurredOn, entry.description, entry.amountInCents,
-    ])).sort();
-    const fingerprint = createHash("sha256")
-      .update(JSON.stringify(["invoice-v1", canonicalEntries])).digest("hex");
+    const fingerprint = calculateInvoiceFingerprint(original.entries);
     return {
       ...original, entries, totalInCents, fingerprint,
       ignoredNegativeCount: original.entries.length - entries.length,
