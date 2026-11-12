@@ -85,7 +85,7 @@ export default function App({ servico = servicoPadrao }: Props) {
       case "home":
         return <Home aoNavegar={setTela} {...sessao} />;
       case "dashboard":
-        return <Dashboard aoNavegar={setTela} {...sessao} />;
+        return <Dashboard key={usuario.id} aoSessaoExpirada={sessaoExpirada} aoNavegar={setTela} {...sessao} />;
       case "categorias":
         return <Categorias aoNavegar={setTela} aoSessaoExpirada={sessaoExpirada} {...sessao} />;
     }
