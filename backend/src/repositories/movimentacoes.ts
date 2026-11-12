@@ -3,6 +3,8 @@ import { validarValorEmCentavos } from "./validarValorEmCentavos";
 import { validarCategoriaDoUsuario } from "./validarCategoriaDoUsuario.js";
 import { normalizarDescricaoMovimentacao } from "../models/descricaoMovimentacao.js";
 
+export type Lancamento = NovaMovimentacao & { id: number; categoriaId: number | null };
+
 export interface NovaMovimentacao {
   descricao: string;
   tipo: "receita" | "despesa";
@@ -36,7 +38,7 @@ export function criarRepositorioMovimentacoes(db: DatabaseSync) {
       return db.prepare(`
         SELECT id, descricao, tipo, valor_em_centavos AS valorEmCentavos, data, categoria_id AS categoriaId
         FROM movimentacoes WHERE usuario_id = ? ORDER BY data, id
-      `).all(usuarioId);
+      `).all(usuarioId) as unknown as Lancamento[];
     },
   };
 }

@@ -12,7 +12,7 @@ import { InvoiceImportWorkflow } from "./features/invoice-import/application/inv
 import { createDefaultInvoiceImportService } from "./features/invoice-import/index.js";
 import type { InvoiceIdentity } from "./controllers/createInvoiceController.js";
 import { createAuthRouter, type Autenticacao } from "./routes/authRoutes.js";
-import { carregarSessao } from "./middlewares/sessao.js";
+import { carregarSessao, exigirSessao } from "./middlewares/sessao.js";
 import { tratarErrosDaApi } from "./middlewares/tratarErrosDaApi.js";
 import {
   createCategoryRouter,
@@ -22,6 +22,8 @@ import {
   criarRouterMovimentacoes,
   type RepositorioMovimentacoes,
 } from "./routes/movimentacoes.js";
+
+import { mesAtual, resumir } from "./services/resumo.js";
 
 interface AppDependencies {
   movimentacoes?: RepositorioMovimentacoes;
@@ -75,6 +77,16 @@ export function createApp({
     );
   }
 
+  // Resumo financeiro do usuário autenticado.
+  // Funcionalidade integrada da main.
+  if (movimentacoes && categoriasDoUsuario) {
+    api.get("/resumo", exigirSessao, async (req, res) => {
+      const id = req.usuario!.id;
+      const categorias = await categoriasDoUsuario(id).list();
+      res.json(resumir(movimentacoes.listar(id), categorias, mesAtual()));
+    });
+  }
+
   // Autenticação.
   if (autenticacao) {
     api.use("/auth", createAuthRouter(autenticacao));
@@ -89,6 +101,7 @@ export function createApp({
   }
 
   // Metas financeiras vinculadas ao usuário autenticado.
+  // US05 - José.
   if (metasDoUsuario) {
     api.use(
       "/goals",
