@@ -294,7 +294,7 @@ O painel do Turso também mostra a URL e gera o token (banco → *Connect*).
 ### 2. Inicializar o banco remoto vazio (uma vez)
 
 O banco novo não precisa de comando separado: na primeira partida, a aplicação
-aplica as migrations 1 a 5 e só depois abre a porta. Para conferir a conexão
+aplica as migrations 1 a 6 e só depois abre a porta. Para conferir a conexão
 antes do Render, rode o backend compilado uma vez no seu computador, com as
 variáveis só nesta janela do PowerShell:
 
@@ -307,7 +307,7 @@ $env:PORT = "3100"                              # não conflita com o contêiner
 node dist/server.js                             # espere "banco: Turso (remoto)"; encerre com Ctrl+C
 Remove-Item Env:TURSO_DATABASE_URL, Env:TURSO_AUTH_TOKEN, Env:PORT
 
-turso db shell controle-financeiro-c14 "SELECT versao FROM migrations ORDER BY versao"   # 1 a 5
+turso db shell controle-financeiro-c14 "SELECT versao FROM migrations ORDER BY versao"   # 1 a 6
 ```
 
 Se aparecer `Não foi possível iniciar`, a mensagem diz o que falta: variável,
@@ -364,6 +364,9 @@ Registre a data, o SHA da imagem e o resultado em [Evidências registradas](#evi
    ([Render](https://render.com/docs/deploying-an-image)).
 3. As migrations novas são aplicadas na partida. Se o banco falhar, a porta não
    abre, o health check falha e o Render mantém a versão anterior no ar.
+4. Antes de publicar uma versão com migration nova, faça uma cópia do banco
+   ([Backup e recuperação](#backup-e-recuperação)). É o caso da primeira imagem
+   com a migration 6 num Turso que ainda está na versão 5.
 
 ### Voltar para a imagem anterior
 
@@ -372,10 +375,14 @@ Registre a data, o SHA da imagem e o resultado em [Evidências registradas](#evi
   A imagem precisa continuar no Docker Hub.
 - **Não volte para uma imagem anterior a esta entrega:** ela ignora o Turso e
   gravaria no disco temporário do Render.
-- As migrations 1 a 5 só acrescentam tabelas e colunas. Se uma versão futura
-  mudar o esquema de forma incompatível, a imagem antiga pode falhar com o
-  banco já migrado. Nesse caso, a volta exige restaurar o banco (abaixo) junto
-  com a imagem.
+- As migrations 1 a 5 só acrescentam tabelas e colunas. A **migration 6**
+  (metas por usuário) reconstrói a tabela `metas`: as metas existentes ficam
+  sem dono (`usuario_id NULL`) e deixam de aparecer para as contas. Uma imagem
+  anterior a ela não conhece `usuario_id` e listaria as metas de todas as
+  contas juntas. Depois que a migration 6 rodar, não volte para essas imagens.
+  Se for preciso, restaure o banco (abaixo) junto com a imagem.
+- Se uma versão futura mudar o esquema de forma incompatível, vale o mesmo
+  cuidado: a volta exige restaurar o banco junto com a imagem.
 
 ### Backup e recuperação
 

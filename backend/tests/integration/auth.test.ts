@@ -183,6 +183,6 @@ describe("Migration 4 (sessões)", () => {
     expect(await linhas(db, "SELECT * FROM movimentacoes")).toHaveLength(1);
     expect(await linhas(db, "SELECT * FROM sessoes")).toEqual([]);
     expect(await linhas(db, "SELECT versao FROM migrations ORDER BY versao"))
-      .toEqual([{ versao: 1 }, { versao: 2 }, { versao: 3 }, { versao: 4 }, { versao: 5 }]);
+      .toEqual([{ versao: 1 }, { versao: 2 }, { versao: 3 }, { versao: 4 }, { versao: 5 }, { versao: 6 }]);
   });
 });

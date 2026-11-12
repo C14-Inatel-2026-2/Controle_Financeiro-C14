@@ -12,9 +12,9 @@ compatível com SQLite, num único caminho de acesso a dados:
 ou `https://`, ou `RENDER=true` sem Turso impedem a aplicação de subir, com mensagem clara
 e sem repetir o token. A publicação está no [guia do deploy](../../../docs/ci-cd/deploy.md#hospedagem-pública-no-render-com-turso).
 
-`abrirBanco()` é assíncrona: abre o banco, aplica as migrations 1 a 5 uma única vez cada
-(usuários e movimentações, metas, importações de faturas, sessões e categorias) e devolve o
-cliente. `:memory:` é usado nos testes. Feche com `db.close()` ao encerrar a aplicação.
+`abrirBanco()` é assíncrona: abre o banco, aplica as migrations 1 a 6 uma única vez cada
+(usuários e movimentações, metas, importações de faturas, sessões, categorias e metas por
+usuário) e devolve o cliente. `:memory:` é usado nos testes. Feche com `db.close()` ao encerrar a aplicação.
 
 ```typescript
 const db = await abrirBanco();                       // ou abrirBanco(lerConfigBanco(process.env))
@@ -42,7 +42,9 @@ Consultas SQL usam parâmetros. As movimentações retornadas usam valorEmCentav
 compatível com calcularSaldo. A confirmação de faturas grava os lançamentos como movimentações
 do usuário da sessão. As rotas HTTP de movimentações estão em `docs/categorias.md`.
 
-Metas são persistidas na tabela `metas` pela migration 2. Veja o
+Metas são persistidas na tabela `metas`, criada pela migration 2 e vinculada ao usuário
+pela migration 6. Metas antigas permanecem com `usuario_id NULL`, sem aparecer para
+nenhuma conta; novos cadastros usam o usuário da sessão. Veja o
 [contrato da API e a regra de progresso da US05](../../../docs/us05-metas-financeiras.md).
 
 Testes: `npm test -- tests/integration` (inclui `invoice-import-repository.test.ts`, com transação, rollback e duplicidade),

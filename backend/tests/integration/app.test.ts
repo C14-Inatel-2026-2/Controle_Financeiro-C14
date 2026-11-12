@@ -5,6 +5,8 @@ import { app, createApp } from "../../src/app.js";
 import type { CriarUsuario } from "../../src/controllers/createUserController.js";
 import { abrirBanco } from "../../src/database/conexao.js";
 import { createSqliteGoalRepository } from "../../src/features/goals/infrastructure/sqlite-goal-repository.js";
+import { criarRepositorioSessoes } from "../../src/repositories/sessoes.js";
+import { criarRepositorioCredenciais } from "../../src/repositories/credenciais.js";
 
 let db: Client;
 beforeEach(async () => { db = await abrirBanco(":memory:"); });
@@ -18,12 +20,20 @@ describe("Montagem conjunta de metas e usuários", () => {
     const criarUsuario = vi.fn<CriarUsuario>().mockResolvedValue({
       id: 1, nome: dadosUsuario.nome, email: dadosUsuario.email,
     });
+    await db.execute({
+      sql: "INSERT INTO usuarios (id, nome, email, senha_hash) VALUES (?, ?, ?, ?)",
+      args: [1, dadosUsuario.nome, dadosUsuario.email, "hash-teste"],
+    });
+    const sessoes = criarRepositorioSessoes(db);
+    const cookie = `sessao=${(await sessoes.criar(1)).token}`;
     const application = createApp({
-      goalCatalog: createSqliteGoalRepository(db),
+      metasDoUsuario: (usuarioId) => createSqliteGoalRepository(db, usuarioId),
+      autenticacao: { credenciais: criarRepositorioCredenciais(db), sessoes, cookieSeguro: false },
       criarUsuario: configurado ? criarUsuario : undefined,
     });
 
-    const cadastroMeta = await request(application).post("/goals").send(meta);
+    await request(application).get("/goals").expect(401);
+    const cadastroMeta = await request(application).post("/goals").set("Cookie", cookie).send(meta);
     expect(cadastroMeta.status).toBe(201);
     expect(cadastroMeta.body).toEqual({ ...meta, progressAmountInCents: 0 });
 
@@ -43,7 +53,7 @@ describe("Montagem conjunta de metas e usuários", () => {
       expect(criarUsuario).not.toHaveBeenCalled();
     }
 
-    const consulta = await request(application).get("/goals");
+    const consulta = await request(application).get("/goals").set("Cookie", cookie);
     expect(consulta.status).toBe(200);
     expect(consulta.body).toEqual([cadastroMeta.body]);
     const health = await request(application).get("/health");

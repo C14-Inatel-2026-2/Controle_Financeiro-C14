@@ -1,101 +1,102 @@
 # US05 — Acompanhar metas financeiras
 
-## Escopo desta contribuição
+## Escopo do backend
 
-Entrega somente do backend mínimo: criar e listar metas, persistir no SQLite e
-validar nome obrigatório e valor-alvo positivo. A interface de metas será integrada
-pelo Donnato em trabalho separado. As telas existentes dos colegas são preservadas.
-Esta contribuição não entrega a história completa de ponta a ponta.
+O backend permite criar e listar metas persistidas no SQLite, vinculadas ao usuário
+obtido da sessão autenticada. A integração da interface está sob responsabilidade
+do Caio, em trabalho separado.
 
 O fluxo reutiliza `createGoal` e `createGoalService`: o nome recebe trim e é
-obrigatório; o valor-alvo é um inteiro seguro em centavos maior que zero.
-Nomes duplicados continuam sendo comparados exatamente, diferenciando maiúsculas.
+obrigatório; o valor-alvo deve ser um inteiro seguro em centavos maior que zero.
+A comparação de nomes continua sensível a maiúsculas: `Viagem` e `viagem` são
+metas diferentes. O mesmo nome é permitido em contas diferentes.
 
-## Persistência e API
+## Autenticação e API
 
-A migration 2 cria `metas` sem modificar os registros de usuários e movimentações.
-O servidor abre o SQLite com `abrirBanco` e injeta o repositório na aplicação.
-O caminho padrão é `data/financeiro.sqlite`, relativo ao diretório de execução;
-`DATABASE_PATH` permite configurar outro arquivo. Use o mesmo caminho entre reinícios.
+As rotas funcionam com e sem o prefixo `/api`. Exigem o cookie `sessao`, emitido
+por `POST /auth/login`. `carregarSessao` carrega a identidade e `exigirSessao`
+protege todas as rotas de metas.
 
-- `POST /goals`: recebe `{ "name": "Viagem", "targetAmountInCents": 100000 }`.
-  Retorna 201 com a meta e `progressAmountInCents: 0` somente após gravar.
-- `GET /goals`: retorna uma lista de metas com os mesmos campos, ou `[]`.
-- Dados inválidos retornam 400; nome duplicado, 409; falha de persistência ou
-  consulta, 500. Erros seguem o formato `{ "erro": { "codigo": "…", "mensagem": "…" } }`.
+- `POST /goals` ou `POST /api/goals`: recebe
+  `{ "name": "Viagem", "targetAmountInCents": 100000 }`.
+  Retorna 201 com os mesmos campos e `progressAmountInCents: 0` após persistir.
+- `GET /goals` ou `GET /api/goals`: retorna apenas as metas da sessão atual,
+  em ordem de cadastro, com os mesmos campos, ou `[]`.
+- Sessão ausente, inválida, expirada ou revogada retorna 401 com
+  `AUTHENTICATION_REQUIRED`.
+- Dados inválidos retornam 400 com `VALIDATION_ERROR`.
+- Nome duplicado após trim na mesma conta retorna 409 com `GOAL_ALREADY_EXISTS`.
+- Falhas de persistência ou consulta retornam 500 com `INTERNAL_ERROR`.
 
-## Decisão sobre progresso
+Os erros seguem `{ "erro": { "codigo": "…", "mensagem": "…" } }`.
+O proprietário vem exclusivamente de `req.usuario.id`. Identificadores enviados
+no corpo, query string ou cabeçalhos não selecionam outra conta.
+`createApp({ metasDoUsuario, autenticacao })` recebe uma fábrica de repositórios
+por usuário; `createAppComBanco` configura essa fábrica e as sessões SQLite.
+Todas as consultas e inserções do repositório de metas usam o usuário da sessão.
+Não há rotas de edição, exclusão ou aportes nesta entrega.
 
-A inspeção do módulo de metas não encontrou aportes, valor acumulado, vínculo com
-movimentações ou regra de cálculo. O saldo existente refere-se às movimentações
-do usuário e não possui vínculo com metas. Assim, a regra desta entrega é:
-**sem aportes definidos no modelo, o progresso atual é zero**.
-O backend mantém `progressAmountInCents: 0` tanto no cadastro quanto na consulta
-para preservar o contrato existente. **Progresso dinâmico não está implementado**:
-não há registro de aportes nem distribuição do saldo entre metas. Esse zero não
-representa um cálculo de evolução financeira.
+## Migração e persistência
 
-O projeto ainda não tem autenticação: as metas seguem o escopo global do módulo
-atual, sem aceitar um identificador de usuário fornecido pelo cliente. Isolamento
-por usuário depende da história de autenticação e não faz parte desta entrega.
+A migration 2 permanece inalterada. A migration 6 reconstrói a tabela `metas`
+em uma transação e acrescenta `usuario_id REFERENCES usuarios(id)` e
+`UNIQUE(usuario_id, nome)`, substituindo a unicidade global do nome.
+As validações de nome e valor-alvo são mantidas no SQLite.
 
-## Execução local e integração futura
+IDs, nomes e valores existentes são preservados com `usuario_id NULL`: não há
+informação confiável sobre seus proprietários. Essas metas antigas não aparecem
+para nenhuma conta, nem impedem uma conta de cadastrar o mesmo nome. O backend
+sempre fornece um usuário ao criar metas novas; a coluna aceita NULL para
+preservar o legado. Atribuir essas metas exige uma decisão futura com informação
+confiável, sem distribuição automática ou arbitrária.
 
-Em `backend/`, execute `npm ci` e `npm run dev` com Node.js 24. O banco é
-acessado pelo cliente libSQL (veja o [guia do banco](../backend/src/database/README.md)).
-A API atende em `http://localhost:3000`.
+`abrirBanco` habilita chaves estrangeiras e aplica as migrations. A versão 6 roda num
+`batch` "write" do libSQL e é registrada somente após a reconstrução; falhas revertem
+a transação inteira.
+Execuções repetidas não recriam a tabela nem alteram registros já migrados.
+A chave estrangeira rejeita donos inexistentes e impede excluir usuários que
+possuam metas vinculadas. Não há exclusão em cascata de metas.
 
+O arquivo padrão é `data/financeiro.sqlite`, relativo à pasta de execução.
+`DATABASE_PATH` permite escolher outro arquivo. Use o mesmo caminho entre reinícios.
+Na hospedagem, as metas ficam no Turso, como os demais dados ([guia do banco](../backend/src/database/README.md)).
+
+## Progresso e pendências
+
+`progressAmountInCents` permanece temporariamente em zero na criação e listagem.
+O sistema ainda não tem regra de aportes ou vínculo entre movimentações e metas;
+o saldo do usuário não é distribuído automaticamente. Zero preserva o contrato
+atual e não representa um cálculo de evolução financeira.
+
+A equipe precisa decidir a origem dos aportes, como vinculá-los a uma meta,
+como tratar retiradas e estornos e se haverá alguma relação com movimentações.
+Após essa definição, será necessário implementar persistência, operações e cálculo
+do progresso. Também ficam pendentes a integração da interface e uma eventual
+política de identificação dos proprietários das metas legadas.
+
+## Execução e verificação
+
+Em `backend/`, use `npm run dev` com Node.js 24 (o banco usa o cliente libSQL).
 No PowerShell com scripts desabilitados, use `npm.cmd` no lugar de `npm`.
-Exemplo de cadastro e consulta no PowerShell:
+Exemplo para uma conta já cadastrada:
 
 ```powershell
-Invoke-RestMethod -Method Post -Uri http://localhost:3000/goals -ContentType 'application/json' -Body '{"name":"Viagem","targetAmountInCents":100000}'
-Invoke-RestMethod -Uri http://localhost:3000/goals
+Invoke-RestMethod -Method Post -Uri http://localhost:3000/api/auth/login -ContentType 'application/json' -Body '{"email":"ana@example.test","senha":"senha-de-teste"}' -SessionVariable sessao
+Invoke-RestMethod -Method Post -Uri http://localhost:3000/api/goals -WebSession $sessao -ContentType 'application/json' -Body '{"name":"Viagem","targetAmountInCents":100000}'
+Invoke-RestMethod -Uri http://localhost:3000/api/goals -WebSession $sessao
 ```
 
-Na integração da interface pelo Donnato, o proxy existente do Vite permite usar
-`/api/goals`, encaminhando para `/goals` no backend. A interface deve enviar
-valores em centavos, aguardar a confirmação da API e apresentar falhas como erro.
-Não há uma tela de metas ou rota `/#metas` entregue nesta contribuição.
+A interface deve enviar o cookie da sessão nas requisições, valores em centavos,
+aguardar a confirmação da API e apresentar as falhas retornadas.
 
-`createApp({ goalCatalog, criarUsuario })` mantém as dependências independentes.
-O servidor configura o catálogo SQLite. As rotas `/users` e `/health` da `main`
-são preservadas, incluindo 503 com `USER_REGISTRATION_UNAVAILABLE` se o serviço
-de cadastro de usuários não estiver configurado.
+```text
+npm run build
+npm test
+npm test -- tests/integration/goals.test.ts tests/integration/goals-auth.test.ts tests/integration/goals-migration.test.ts tests/unit/goals
+```
 
-## Verificação
-
-- Backend: `npm test` e `npm run build`.
-
-Os testes cobrem domínio, propagação de falha no serviço, API com SQLite em arquivo,
-reabertura da conexão, atualização da migration 1, duplicidade e erros HTTP.
-Os testes de integração também verificam a coexistência de metas, usuários e
-health, com e sem serviço de cadastro. Não são testes de interface.
-
-Validação em 31/10/2026: os 109 testes do backend e o build passaram. Como
-verificação de preservação do frontend dos colegas, seus 7 testes existentes e
-o build também passaram; não houve alteração do frontend em relação à `main`.
-
-Pendências da história completa: interface e tratamento de erros visuais, a serem
-integrados pelo Donnato, e definição e implementação de progresso dinâmico.
-
-## Arquivos desta entrega
-
-- `README.md`
-- `backend/src/app.ts`
-- `backend/src/server.ts`
-- `backend/src/database/conexao.ts`
-- `backend/src/database/README.md`
-- `backend/src/features/goals/domain/goal.ts`
-- `backend/src/features/goals/domain/goal-repository.ts`
-- `backend/src/features/goals/infrastructure/sqlite-goal-repository.ts`
-- `backend/src/routes/goalRoutes.ts`
-- `backend/tests/integration/app.test.ts`
-- `backend/tests/integration/goals.test.ts`
-- `backend/tests/integration/health.test.ts`
-- `backend/tests/integration/users.test.ts` (ajuste do chamador de `createApp`)
-- `backend/tests/unit/goals/goal.test.ts`
-- `backend/tests/unit/goals/create-goal-service.test.ts`
-- `docs/us05-metas-financeiras.md`
-
-O diff final desta contribuição em relação à `main` não deve alterar `frontend/`.
+Os testes cobrem domínio e serviço, autenticação, isolamento, tentativas de forjar
+a identidade, duplicidade por usuário, persistência após reabrir o SQLite,
+preservação do legado, integridade referencial, repetição e rollback da migração.
+A suíte completa também verifica a coexistência com usuários, health, categorias,
+movimentações e importação de faturas. Não são testes de interface.

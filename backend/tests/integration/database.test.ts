@@ -21,7 +21,7 @@ describe("Banco de movimentações", () => {
   it("cria o esquema completo num banco novo", async () => {
     db = await abrirBanco(":memory:");
     expect(await linhas(db, "SELECT versao FROM migrations ORDER BY versao"))
-      .toEqual([1, 2, 3, 4, 5].map((versao) => ({ versao })));
+      .toEqual([1, 2, 3, 4, 5, 6].map((versao) => ({ versao })));
     const tabelas = await linhas(db, "SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name");
     expect(tabelas.map((t) => t.name)).toEqual([
       "categorias", "importacao_lancamentos", "importacoes_faturas", "metas", "migrations", "movimentacoes", "sessoes", "usuarios",

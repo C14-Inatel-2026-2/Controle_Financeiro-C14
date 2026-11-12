@@ -21,7 +21,7 @@ export function createAppComBanco(db: Banco, { cookieSeguro = false, pastaFronte
   const usuarios = createSqliteUserRepository(db);
   return createApp({
     movimentacoes: criarRepositorioMovimentacoes(db),
-    goalCatalog: createSqliteGoalRepository(db),
+    metasDoUsuario: (usuarioId) => createSqliteGoalRepository(db, usuarioId),
     criarUsuario: (dados) => createUserService(dados, usuarios),
     invoiceWorkflow: new InvoiceImportWorkflow(createDefaultInvoiceImportService(), createSqliteInvoiceImportRepository(db)),
     invoiceIdentity: (req) => req.usuario?.id,

@@ -9,7 +9,7 @@ let db: Client;
 let app: ReturnType<typeof createApp>;
 beforeAll(async () => {
   db = await abrirBanco(":memory:");
-  app = createApp({ goalCatalog: createSqliteGoalRepository(db) });
+  app = createApp({ metasDoUsuario: (usuarioId) => createSqliteGoalRepository(db, usuarioId) });
 });
 afterAll(() => db.close());
 
