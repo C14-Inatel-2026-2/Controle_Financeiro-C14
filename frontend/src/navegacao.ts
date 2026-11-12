@@ -6,4 +6,5 @@ export type Tela =
   | "cadastro"
   | "home"
   | "dashboard"
+  | "movimentacoes"
   | "categorias";

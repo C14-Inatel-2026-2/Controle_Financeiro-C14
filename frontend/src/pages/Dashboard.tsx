@@ -17,12 +17,13 @@ const emReais = (centavos: number) => reais.format(centavos / 100);
 
 export function Dashboard({ aoNavegar, usuario, aoSair, aoSessaoExpirada }: Props) {
   const [resumo, setResumo] = useState<Resumo | null>(null);
+  const [periodo, setPeriodo] = useState("");
   const [erro, setErro] = useState(false);
   useEffect(() => {
     const controller = new AbortController();
     async function carregar() {
       try {
-        const resposta = await fetch("/api/resumo", { signal: controller.signal });
+        const resposta = await fetch(periodo ? "/api/resumo?mes=" + periodo : "/api/resumo", { signal: controller.signal });
         if (controller.signal.aborted) return;
         if (resposta.status === 401) { aoSessaoExpirada(); return; }
         if (!resposta.ok) throw new Error();
@@ -34,7 +35,7 @@ export function Dashboard({ aoNavegar, usuario, aoSair, aoSessaoExpirada }: Prop
     }
     void carregar();
     return () => controller.abort();
-  }, [aoSessaoExpirada, usuario.id]);
+  }, [aoSessaoExpirada, usuario.id, periodo]);
 
   const mes = resumo && new Date(resumo.mes + "-01T12:00:00Z").toLocaleDateString("pt-BR", {
     month: "long", year: "numeric", timeZone: "UTC",
@@ -44,7 +45,12 @@ export function Dashboard({ aoNavegar, usuario, aoSair, aoSessaoExpirada }: Prop
     <div className="ap-tela">
       <Topo ativo="dashboard" aoNavegar={aoNavegar} usuario={usuario} aoSair={aoSair} />
       <main className="ap-conteudo">
-        <div className="ap-cabecalho"><h1>Dashboard</h1>{mes && <span className="ap-mes">{mes}</span>}</div>
+        <div className="ap-cabecalho"><h1>Dashboard</h1><label className="ap-mes">Mês <input type="month" value={periodo || resumo?.mes || ""} onChange={e => {
+            if (!e.target.value) return;
+            setResumo(null);
+            setErro(false);
+            setPeriodo(e.target.value);
+          }} /></label></div>
         {erro && <p role="alert">Não foi possível carregar o resumo financeiro.</p>}
         {!erro && !resumo && <p role="status">Carregando resumo...</p>}
         {resumo && <>
@@ -55,7 +61,7 @@ export function Dashboard({ aoNavegar, usuario, aoSair, aoSessaoExpirada }: Prop
           </div>
           <div className="ap-colunas">
             <section className="ap-cartao">
-              <h2 className="ap-secao">Gastos por categoria</h2>
+              <h2 className="ap-secao">Gastos por categoria</h2><p className="ap-nota">{mes}</p>
               {resumo.gastosPorCategoria.length === 0 && <p>Nenhuma despesa neste mês.</p>}
               <div className="ap-barras">{resumo.gastosPorCategoria.map(gasto => (
                 <div className="ap-barra" key={gasto.categoriaId ?? "sem"}>
@@ -66,7 +72,7 @@ export function Dashboard({ aoNavegar, usuario, aoSair, aoSessaoExpirada }: Prop
               ))}</div>
             </section>
             <section className="ap-cartao">
-              <h2 className="ap-secao">Últimos lançamentos</h2>
+              <h2 className="ap-secao">Últimos lançamentos da conta</h2>
               {resumo.ultimosLancamentos.length === 0 && <p>Nenhum lançamento registrado.</p>}
               <div className="ap-lista">{resumo.ultimosLancamentos.map(m => (
                 <div className="ap-linha" key={m.id}>

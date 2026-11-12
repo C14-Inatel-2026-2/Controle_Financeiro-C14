@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { PaginaInicial } from "./pages/PaginaInicial";
 import { Login } from "./pages/Login";
 import { Cadastro } from "./pages/Cadastro";
+import { Movimentacoes } from "./pages/Movimentacoes";
 import { Home } from "./pages/Home";
 import { Dashboard } from "./pages/Dashboard";
 import { Categorias } from "./pages/Categorias";
@@ -14,7 +15,7 @@ import type { Usuario } from "./services/ServicoDeCadastro";
 const servicoPadrao = new ServicoDeAutenticacao();
 
 // Telas que só abrem com uma sessão confirmada pela API.
-const INTERNAS: Tela[] = ["home", "dashboard", "categorias", "importacao"];
+const INTERNAS: Tela[] = ["home", "dashboard", "categorias", "importacao", "movimentacoes"];
 
 type Props = {
   servico?: Pick<ServicoDeAutenticacao, "entrar" | "usuarioAtual" | "sair">;
@@ -86,6 +87,8 @@ export default function App({ servico = servicoPadrao }: Props) {
         return <Home aoNavegar={setTela} {...sessao} />;
       case "dashboard":
         return <Dashboard key={usuario.id} aoSessaoExpirada={sessaoExpirada} aoNavegar={setTela} {...sessao} />;
+      case "movimentacoes":
+        return <Movimentacoes key={usuario.id} aoNavegar={setTela} aoSessaoExpirada={sessaoExpirada} {...sessao} />;
       case "categorias":
         return <Categorias aoNavegar={setTela} aoSessaoExpirada={sessaoExpirada} {...sessao} />;
     }

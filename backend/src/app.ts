@@ -82,8 +82,13 @@ export function createApp({
   if (movimentacoes && categoriasDoUsuario) {
     api.get("/resumo", exigirSessao, async (req, res) => {
       const id = req.usuario!.id;
+      const mes = req.query.mes ?? mesAtual();
+      if (typeof mes !== "string" || !/^\d{4}-(0[1-9]|1[0-2])$/.test(mes)) {
+        res.status(400).json({ erro: { codigo: "VALIDATION_ERROR", mensagem: "Informe o mês no formato AAAA-MM." } });
+        return;
+      }
       const categorias = await categoriasDoUsuario(id).list();
-      res.json(resumir(await movimentacoes.listar(id), categorias, mesAtual()));
+      res.json(resumir(await movimentacoes.listar(id), categorias, mes));
     });
   }
 
