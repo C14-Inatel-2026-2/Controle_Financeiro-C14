@@ -228,10 +228,11 @@ O job `pipeline-completa`, definido pelo [Jenkinsfile](../../Jenkinsfile) da rai
 | Build | `frontend-build` e `backend-build`, em paralelo | Testam e compilam o frontend, compilam o backend e arquivam os arquivos gerados. |
 | Testes | `backend-unit-igor` e `backend-integration-coverage`, em paralelo | Publicam o JUnit dos unitários, o JUnit de integração e a cobertura. |
 | Deploy | `backend-deploy` | Constrói a imagem com o mesmo SHA, verifica-a num contêiner temporário e a publica no Docker Hub com a tag do SHA. Veja o [guia do deploy](../ci-cd/deploy.md). |
+| Atualizar Render | — | Só com `BRANCH=main`: confere se o SHA ainda é a ponta da `main` e pede ao Render o deploy da imagem pelo digest comprovado. Registra o resultado em `deploy-render.txt`. Não confirma que a versão ficou Live. Veja [Publicar uma versão nova](../ci-cd/deploy.md#publicar-uma-versão-nova). |
 
 Um estágio só começa se o anterior terminou com sucesso. Se qualquer job falhar, a pipeline termina em `FAILURE` e os estágios seguintes, inclusive o Deploy, não são executados. Dentro de um estágio paralelo, o outro job continua até o fim, para que os dois resultados fiquem registrados.
 
-A pipeline também é manual: não há gatilho por push ou PR.
+A pipeline também é manual: não há gatilho por push ou PR. Um push na `main` não atualiza o site; o Render só é atualizado quando alguém executa a `pipeline-completa` com `BRANCH=main` e ela termina o estágio Atualizar Render.
 
 ### Pré-requisitos
 
@@ -239,6 +240,7 @@ A pipeline também é manual: não há gatilho por push ou PR.
 - Imagem do controlador reconstruída depois de atualizar `infra/jenkins/jobs.groovy`, como em [Aplicar atualizações do ambiente](#aplicar-atualizações-do-ambiente). Confira que os cinco jobs mostram os parâmetros **BRANCH** e **GIT_COMMIT_SHA** em **Build with Parameters**. Um job chamado pela pipeline sem esse parâmetro declarado falha de propósito, em vez de executar outro commit.
 - A branch escolhida publicada no GitHub, contendo o `Jenkinsfile` da raiz, os cinco Jenkinsfiles e `infra/jenkins/confirmar-revisao.groovy`.
 - Para o estágio Deploy: o agente com acesso ao Docker Desktop e a credencial `dockerhub-credentials` cadastrada, conforme o [guia do deploy](../ci-cd/deploy.md#acesso-do-agente-ao-docker).
+- Para o estágio Atualizar Render (só na `main`): a credencial **Secret text** `render-deploy-hook`, com a URL do *deploy hook* do serviço no Render. Não coloque essa URL no repositório nem em mensagens.
 
 ### Como executar
 
@@ -365,7 +367,8 @@ Mudanças apenas no código ou nos Jenkinsfiles não exigem reconstruir o ambien
 | [infra/jenkins/jenkins.yaml](../../infra/jenkins/jenkins.yaml) | Aplica as configurações do Jenkins por JCasC e carrega os jobs. |
 | [infra/jenkins/jobs.groovy](../../infra/jenkins/jobs.groovy) | Cria os seis jobs manuais, com os parâmetros `BRANCH` e, nos cinco jobs chamados pela pipeline, `GIT_COMMIT_SHA`, e o job `pr-validacao`, que valida os PRs sozinho. |
 | [Jenkinsfile.pr](../../Jenkinsfile.pr) | Define a validação de PRs: builds e testes da mescla do PR com a `main`, sem deploy. Veja a [validação de pull requests](validacao-pr.md). |
-| [Jenkinsfile](../../Jenkinsfile) | Define a pipeline completa: resolve o commit e encadeia os cinco jobs. |
+| [Jenkinsfile](../../Jenkinsfile) | Define a pipeline completa: resolve o commit, encadeia os cinco jobs e, na `main`, pede o deploy ao Render. |
+| [infra/jenkins/solicitar-deploy-render.js](../../infra/jenkins/solicitar-deploy-render.js) | Faz o pedido único ao deploy hook do Render com o digest aprovado, sem expor a URL. Testes: `node --test infra/jenkins/solicitar-deploy-render.test.js`. |
 | [infra/jenkins/confirmar-revisao.groovy](../../infra/jenkins/confirmar-revisao.groovy) | Confere, em cada job, se o código obtido é a revisão pedida. |
 | [infra/jenkins/agent/Dockerfile](../../infra/jenkins/agent/Dockerfile) | Constrói o agente com Java, Git, Node.js, npm e a CLI do Docker com `buildx`. |
 | [frontend/Jenkinsfile](../../frontend/Jenkinsfile) | Define as etapas do build do frontend. |

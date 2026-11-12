@@ -257,9 +257,11 @@ verificação do Jenkins testa as duas configurações.
 
 ## Hospedagem pública no Render com Turso
 
-**Situação:** preparado e testado localmente, **ainda não publicado**. O
-deploy só estará concluído quando a URL pública do Render funcionar e os dados
-continuarem lá depois de um reinício e de uma nova publicação.
+**Situação:** no ar em <https://controle-financeiro-c14.onrender.com>, com o
+banco no Turso. Segundo o Caio, as categorias continuaram salvas depois de uma
+troca de imagem. A atualização automática pelo Jenkins está descrita em
+[Publicar uma versão nova](#publicar-uma-versão-nova) e ainda precisa ser
+validada numa execução real da `pipeline-completa` na `main`.
 
 ### Onde ficam os dados
 
@@ -355,18 +357,75 @@ Registre a data, o SHA da imagem e o resultado em [Evidências registradas](#evi
 
 ### Publicar uma versão nova
 
-1. O Jenkins publica a tag do SHA (e `latest`, na `main`) depois dos testes e
-   da verificação da imagem.
-2. O Render **não** troca de imagem sozinho. Atualize a tag do SHA em
-   *Settings → Image URL* e use **Manual Deploy**. Se o serviço usar `latest`,
-   use **Deploy latest reference**. O *deploy hook* do serviço também serve,
-   com o parâmetro `imgURL` para escolher a tag
-   ([Render](https://render.com/docs/deploying-an-image)).
-3. As migrations novas são aplicadas na partida. Se o banco falhar, a porta não
-   abre, o health check falha e o Render mantém a versão anterior no ar.
-4. Antes de publicar uma versão com migration nova, faça uma cópia do banco
-   ([Backup e recuperação](#backup-e-recuperação)). É o caso da primeira imagem
-   com a migration 6 num Turso que ainda está na versão 5.
+O caminho até o site:
+
+1. **Push no GitHub não atualiza o site sozinho.** Não há gatilho GitHub → Jenkins
+   para a `main`: alguém precisa iniciar a `pipeline-completa` com `BRANCH=main`.
+   Isso só passa a ser automático depois que um gatilho for configurado e
+   validado.
+2. A `pipeline-completa` roda builds, testes e o `backend-deploy`, que publica a
+   imagem do SHA (e `latest`, na `main`) e comprova a publicação com o digest.
+3. **Estágio Atualizar Render** (só com `BRANCH=main`): o Jenkins confere de novo
+   se o SHA aprovado ainda é a ponta da `main` e pede ao Render o deploy da
+   imagem exata, pelo digest:
+   `imgURL=docker.io/bunnyzzw/controle-financeiro-c14@sha256:<digest>`. O pedido
+   usa a credencial `render-deploy-hook` e o script
+   [solicitar-deploy-render.js](../../infra/jenkins/solicitar-deploy-render.js).
+4. **Confira no Render** (*Events*) se o deploy ficou **Live** com esse digest.
+   O Jenkins só registra que o Render **aceitou** o pedido. Um `/health` que
+   responde pode ainda ser da versão anterior.
+
+O que cada situação faz:
+
+| Situação | Resultado no Render | Pipeline |
+| --- | --- | --- |
+| `main`, SHA ainda na ponta, HTTP 200 | Deploy iniciado; o id `dep-…` fica em `deploy-render.txt`. | `SUCCESS`, descrição "Render: solicitado (confira se ficou Live)" |
+| `main`, HTTP 202 | Outro deploy em andamento; com a política *Wait*, o Render segue para o pedido mais recente. | `SUCCESS` |
+| `main` avançou durante a execução | Nenhum pedido; `deploy-render.txt` registra `situacao=ignorado`. Rode a pipeline da `main` de novo. | `SUCCESS`, descrição "Render: ignorado (main avançou)" |
+| `main`, HTTP de erro (400, 404, 409, 5xx…) ou sem resposta em 30 s | Pedido recusado ou não confirmado. Não há nova tentativa automática. Depois de um timeout, confira o painel antes de repetir. | `FAILURE`, com a imagem já publicada |
+| Outra branch, PR (`pr-validacao`) ou `backend-deploy` executado sozinho | Nada: o estágio só existe na `pipeline-completa` e só age na `main`. | — |
+| Falha em build, testes ou publicação | O estágio Atualizar Render não é executado. | `FAILURE` |
+
+- **Segredo:** a URL do hook só existe dentro do `withCredentials`, como variável
+  de ambiente. O script não a imprime, não a grava e não a cita em erros,
+  inclusive de rede. Não segue redirecionamentos e só aceita
+  `https://api.render.com/deploy/…`. Se ela vazar, use **Regenerate Hook** no
+  Render e atualize a credencial no Jenkins.
+- **Execuções simultâneas:** a `pipeline-completa` não roda duas vezes ao mesmo
+  tempo (`disableConcurrentBuilds`), e uma execução cujo SHA deixou de ser a
+  ponta da `main` não pede deploy. Uma versão antiga não é pedida depois de uma
+  mais nova.
+- **Quem pode acionar:** a credencial é global neste Jenkins. Quem consegue
+  iniciar a `pipeline-completa` com um Jenkinsfile alterado numa branch também
+  conseguiria usá-la, como já acontece com `dockerhub-credentials`. Mantenha o
+  acesso ao Jenkins restrito.
+- **Jenkins local:** a pipeline, e com ela a atualização do Render, só roda com
+  o PC do Caio ligado. O site continua no ar no Render com o PC desligado; só
+  deixa de receber versões novas.
+
+**`imgURL` não muda a imagem padrão do serviço.** Segundo o
+[Render](https://render.com/docs/deploying-an-image), o hook implanta a tag ou o
+digest pedido **naquela execução**, mas "for future deploys, your service
+continues to use the tag or digest in its settings". Por isso:
+
+- Mantenha *Settings → Image URL* em `docker.io/bunnyzzw/controle-financeiro-c14:latest`.
+  A `latest` só é atualizada pela pipeline da `main` quando o SHA é a ponta dela,
+  antes do pedido ao Render. Assim, um **Manual Deploy → Deploy latest
+  reference** posterior implanta a mesma versão aprovada, ou uma mais nova da
+  `main`, e não uma antiga.
+- **Não** fixe ali a tag de um SHA antigo: um deploy manual ou um reinício com
+  novo pull voltaria para essa imagem. Para voltar de propósito, use
+  **Rollback** ou siga [Voltar para a imagem anterior](#voltar-para-a-imagem-anterior).
+- O Render baixa a imagem de novo a cada deploy. O digest garante que o deploy
+  automático use exatamente a imagem aprovada, mesmo que `latest` mude depois.
+
+Também continua valendo:
+
+- As migrations novas são aplicadas na partida. Se o banco falhar, a porta não
+  abre, o health check falha e o Render mantém a versão anterior no ar.
+- Antes de uma versão com migration nova, faça uma cópia do banco
+  ([Backup e recuperação](#backup-e-recuperação)). Como o deploy agora é
+  solicitado ao fim da pipeline da `main`, faça a cópia **antes** de iniciá-la.
 
 ### Voltar para a imagem anterior
 
@@ -507,10 +566,13 @@ movimentações, que entraram depois.
    `BRANCH=main`. É essa execução que publica `latest`, se o SHA ainda for a
    ponta da `main`.
 
-3. **Turso e Render:** publicar uma imagem desta entrega pelo Jenkins, criar o
-   serviço no Render e registrar o teste da URL pública e da persistência após
-   reinício e nova publicação ([passo 4](#4-testar-a-url-pública-e-a-persistência)).
-   Até lá, o modo remoto só foi testado com um servidor libSQL local.
+3. **Atualização automática do Render:** depois do merge, executar a
+   `pipeline-completa` com `BRANCH=main` e registrar o número da execução, o
+   digest, o id `dep-…` de `deploy-render.txt` e a confirmação, no painel do
+   Render, de que esse digest ficou **Live**. Até lá, o estágio só foi testado
+   com respostas simuladas, sem acionar o hook real.
+4. **Gatilho GitHub → Jenkins:** não existe. Iniciar a pipeline da `main`
+   continua manual.
 
 Ao registrar cada execução, anote o número da pipeline e do deploy, o commit, a
 referência e o digest de `imagem-publicada.txt`.
