@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { ConfigurableCsvProfile } from "../../../src/features/invoice-import/infrastructure/profiles/csv/configurable-csv-profile.js";
+import { createExampleCsvProfile } from "../../fixtures/invoice-import/create-example-csv-profile.js";
 import {
   AmbiguousInvoiceLayoutError,
   UnknownInvoiceLayoutError,
@@ -13,19 +13,7 @@ import { InvoiceProfileRegistry } from "../../../src/features/invoice-import/dom
 
 // Fixture isolada para testar o registry; não integra o catálogo da aplicação.
 
-const exampleBankCsv = new ConfigurableCsvProfile({
-  id: "example-bank-csv-v1",
-  bankId: "example-bank",
-  bankName: "Banco Exemplo",
-  version: "1",
-  columns: {
-    occurredOn: ["data da compra"],
-    description: ["estabelecimento"],
-    amountInCents: ["valor (r$)"],
-  },
-  acceptedDateFormats: ["pt-BR"],
-  amountFormat: "pt-BR",
-});
+const exampleBankCsv = createExampleCsvProfile();
 
 const exampleBankData: ExtractedCsvInvoiceData = {
   format: "csv",
@@ -93,19 +81,7 @@ describe("InvoiceProfileRegistry", () => {
   });
 
   it("rejects profiles with the same matching priority", () => {
-    const duplicateProfile = new ConfigurableCsvProfile({
-      id: "example-bank-csv-v2",
-      bankId: "example-bank",
-      bankName: "Banco Exemplo",
-      version: "2",
-      columns: {
-        occurredOn: ["data da compra"],
-        description: ["estabelecimento"],
-        amountInCents: ["valor (r$)"],
-      },
-      acceptedDateFormats: ["pt-BR"],
-      amountFormat: "pt-BR",
-    });
+    const duplicateProfile = createExampleCsvProfile("example-bank-csv-v2", "2");
     const registry = new InvoiceProfileRegistry([
       exampleBankCsv,
       duplicateProfile,
