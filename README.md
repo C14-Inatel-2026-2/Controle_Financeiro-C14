@@ -143,32 +143,6 @@ Não há metas de desempenho, de cobertura mínima ou de disponibilidade definid
 | Gustavo | O método de prévia reunia preparação dos lançamentos e cálculo da identificação da fatura. | **Extract Function:** extração de `calculateInvoiceFingerprint()` em [invoice-import-workflow.ts](backend/src/features/invoice-import/application/invoice-import-workflow.ts). | Isola a identificação usada contra duplicidade, preservando o algoritmo SHA-256, a versão `invoice-v1`, a ordenação e o uso dos lançamentos originais, inclusive negativos e descrições completas. | Pendente: inserir o link do PR destas refatorações. |
 | Gustavo | A configuração do perfil CSV fictício estava repetida em três pontos de dois arquivos de teste. | **Extract Function:** criação de [createExampleCsvProfile()](backend/tests/fixtures/invoice-import/create-example-csv-profile.ts), utilizada nos testes do serviço e do registro de perfis. | Centraliza a configuração comum e mantém identificador e versão configuráveis. Cada chamada cria uma instância própria; os cenários e as verificações dos testes permanecem iguais. | Pendente: inserir o link do PR destas refatorações. |
 
-### Verificação das refatorações
-
-A referência anterior às duas refatorações é o commit `1f5a115`.
-
-| Etapa local | Verificação estática | Testes unitários do backend |
-| --- | --- | --- |
-| Antes das refatorações | `npm run build` aprovado | 186 aprovados |
-| Após extrair a identificação da fatura | `npm run build` aprovado | 186 aprovados |
-| Após centralizar o perfil de teste | Verificação TypeScript dos dois arquivos de teste e da função auxiliar aprovada | 186 aprovados |
-
-A comparação local de seis cenários também preservou as prévias e os hashes:
-ordem original e invertida, compra repetida, presença de lançamento negativo e
-descrições que diferem apenas depois do caractere 200. Nenhum caso de teste
-automatizado foi acrescentado ou removido.
-
-Para repetir a validação local, execute `npm run build` e `npm run test:unit`
-na pasta `backend`. Os testes do serviço e do registro de perfis continuam com
-10 e 5 casos, respectivamente.
-
-**Evidência de pipeline pendente:** executar a `pipeline-completa` no Jenkins
-do Caio para a revisão anterior e para a revisão refatorada, registrando o SHA,
-o número e o resultado das execuções. A pipeline usa a ponta da branch publicada;
-os arquivos locais sem commit e push não entram nessa execução. Consulte o
-[procedimento da pipeline completa](docs/jenkins/README.md#5-executar-a-pipeline-completa).
-Os resultados locais acima não substituem essa evidência.
-
 ## Gestão ágil
 
 O grupo utiliza **Kanban** no Trello para organizar o trabalho: [Kanban - Controle Financeiro C14](https://trello.com/b/fc8c7V8Z/kanban-controle-financeiro-c14).
