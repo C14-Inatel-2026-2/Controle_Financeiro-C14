@@ -22,7 +22,7 @@ O PC do Caio, o Docker Desktop e os contêineres `jenkins` e `agent-node-v2` (`d
 1. **Token do GitHub.** Em GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic), crie um token com expiração e **somente** o escopo `repo:status`. Ele serve para publicar o status e para consultar a API com o limite de 5000 requisições por hora (sem token, o limite é de 60 por hora e o Jenkins fica esperando). Se a organização bloquear tokens classic, use um token fine-grained para este repositório com *Commit statuses: Read and write* e aguarde a aprovação da organização.
 2. **Credencial no Jenkins.** Em Gerenciar Jenkins → Credentials → System → Global credentials → Add Credentials, escolha *Username with password*: usuário do GitHub, senha = token, ID `github-pr-status`. O token fica só no Jenkins; não o coloque no repositório.
 3. **Aplicar o job.** Na raiz do repositório, com a branch que contém estes arquivos: `docker compose -f compose.jenkins.yaml up -d --build jenkins`. Isso reconstrói o controlador e preserva o volume, como em [Aplicar atualizações do ambiente](README.md#aplicar-atualizações-do-ambiente).
-4. **Regra de merge, só depois de ver o status funcionando num PR de teste.** Uma pessoa com papel de administrador do repositório ou dona da organização configura a proteção da `main` (veja [Regra proposta](#regra-proposta-para-a-main)).
+4. **Regra de merge (ainda não aplicada), só depois de ver o status funcionando num PR de teste.** Uma pessoa com papel de administrador do repositório ou dona da organização configura a proteção da `main` (veja [Regra proposta](#regra-proposta-para-a-main)).
 
 ## Como conferir o resultado
 
@@ -34,9 +34,13 @@ O PC do Caio, o Docker Desktop e os contêineres `jenkins` e `agent-node-v2` (`d
 - Faça push de um commit novo no PR: a próxima consulta (até 2 minutos) inicia a validação.
 - Sem commit novo: no Jenkins, **pr-validacao** → **Scan Repository Now**. Depois, se necessário, abra **PR-<número>** → **Build Now**.
 
+## Situação atual da `main`
+
+Em 12/11/2026, a API do GitHub informou que a `main` **não tem proteção de branch** e que o repositório não tem rulesets. Por isso, o check `continuous-integration/jenkins/pr-head` aparece no PR, mas **não bloqueia o merge**: o grupo confere o status antes de integrar. Conferido diretamente no GitHub na mesma data: os PRs #37, #40, #42 a #48 e #51 têm o status com `success` no último commit, e os PRs #36, #41, #49 e #50 foram integrados sem status do Jenkins. O commit `8ed4a45` (PR #51) foi validado pela execução PR-51 #1.
+
 ## Quando o Jenkins estiver indisponível
 
-O PR fica com o status pendente ou sem status, e a regra impede o merge. Nada é perdido: quando o Jenkins voltar, a primeira consulta valida os PRs abertos. Se o merge for urgente, quem administra o repositório pode fazer o merge pela opção de contornar a regra ou desativar a regra temporariamente, registrando no PR que a validação não rodou e rodando os testes localmente antes.
+O PR fica com o status pendente ou sem status. Sem a regra, o merge continua possível, e o grupo deve esperar a validação. Com a [regra proposta](#regra-proposta-para-a-main) aplicada, ela impede o merge. Nada é perdido: quando o Jenkins voltar, a primeira consulta valida os PRs abertos. Se o merge for urgente, quem administra o repositório pode fazer o merge pela opção de contornar a regra ou desativar a regra temporariamente, registrando no PR que a validação não rodou e rodando os testes localmente antes.
 
 ## Limitações
 

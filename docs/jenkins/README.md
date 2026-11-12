@@ -317,6 +317,10 @@ merge, em até ~2 minutos surge uma execução "Started by an SCM change" com a
 descrição "pipeline-completa da main solicitada", e a `pipeline-completa` mostra
 "Started by upstream project gatilho-main".
 
+**Demonstrado no Jenkins do PC do Caio (informado pelo Caio):** em 12/11/2026, o
+`gatilho-main` #3 iniciou a `pipeline-completa` #15 depois do merge do PR #50
+([registro](#fluxo-automático-da-main-12112026-informado-pelo-caio)).
+
 **Desativar:**
 
 - **Temporariamente:** **gatilho-main → Disable Project**. Volta a ficar ativo
@@ -328,7 +332,9 @@ descrição "pipeline-completa da main solicitada", e a `pipeline-completa` most
 **Limitações:**
 
 - Só funciona com o PC do Caio, a internet, o Docker Desktop e os dois
-  contêineres ligados. A aba do navegador pode ficar fechada.
+  contêineres ligados. A aba do navegador pode ficar fechada. O site no Render e
+  o banco no Turso continuam no ar com o PC desligado: só deixam de receber
+  versões novas.
 - Se uma execução do gatilho falhar ao consultar o GitHub, a seguinte pode iniciar
   a `pipeline-completa` mesmo sem commit novo. O resultado é um novo deploy do
   mesmo SHA.
@@ -363,15 +369,29 @@ Depois de integrar as branches, a pipeline foi executada com `BRANCH=main`, na m
 
 Esses registros de 17/10/2026 são anteriores à imagem Docker: naquela época, o `backend-deploy` copiava o backend para uma pasta do agente.
 
-#### Publicação da imagem: `Branch-Caio`, commit `5060557`
+#### Publicação da imagem: `Branch-Caio`, commit `5060557` (histórico)
 
 No Jenkins do PC do Caio: `pipeline-completa` #3 e `backend-deploy` #3 em `SUCCESS`, com a mensagem `Publicação comprovada`. A imagem foi publicada com o digest `sha256:9926…19d3b`, e a conferência incluiu cadastro, login, cookies, categorias e a persistência no volume. Registro completo em [evidências do deploy](../ci-cd/deploy.md#evidências-registradas). A numeração das execuções é própria de cada instalação e de cada job: o `backend-deploy` #3 de 17/10 é outra execução.
 
+#### Fluxo automático da `main`, 12/11/2026 (informado pelo Caio)
+
+Depois do merge do PR #50, o `gatilho-main` #3 iniciou sozinho a
+`pipeline-completa` #15, que terminou em `SUCCESS`. O Render ficou **Live**, e a
+mudança apareceu no site. Na mesma data, na `Branch-Caio`, a `pipeline-completa`
+#17 terminou em `SUCCESS` no commit `903cbb0b`, e a #18 no commit `8ed4a458`
+([evidências anexadas no PR #51](https://github.com/C14-Inatel-2026-2/Controle_Financeiro-C14/pull/51)). O que foi conferido diretamente e
+o que ainda falta registrar (SHA, digest e id do deploy) estão nas
+[evidências do deploy](../ci-cd/deploy.md#evidências-registradas).
+
 Ainda não foram realizados:
 
-- **Integração com as movimentações:** nova execução na `Branch-Caio` depois do merge com a `main` e, após o merge do PR, uma execução na `main`, a única que publica `latest`.
-- **Instância limpa:** confirmar que uma instalação nova, construída a partir da `main`, cria os seis jobs com os parâmetros e plugins necessários.
-- **Gatilho da main no Jenkins real:** aplicar o `gatilho-main`, registrar a primeira execução e comprovar que um merge na `main` inicia a `pipeline-completa`. Até agora, só foi validado num Jenkins descartável (veja o guia do deploy, em Pendente).
+- **Instância limpa:** confirmar que uma instalação nova, construída a partir da `main`, cria os jobs com os parâmetros e plugins necessários.
+
+Registros anteriores, mantidos como histórico: até 11/11/2026, esta lista também
+trazia a execução com as movimentações, a primeira execução na `main` e a
+validação do `gatilho-main` no Jenkins real. Segundo o Caio, a #15 demonstrou a
+execução automática na `main`. O código da `main` após o merge do PR #50 já incluía
+a API de movimentações (PR #34), que a verificação da imagem testa.
 
 ## 6. Uso diário
 
