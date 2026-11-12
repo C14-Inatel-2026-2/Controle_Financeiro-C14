@@ -209,8 +209,7 @@ Ainda assim:
   Lançamentos e Dashboard ainda têm rolagem lateral.
 - **Importar fatura** não mostra o menu nem o botão Sair: volte pelo logo ou por
   "← Voltar".
-- **Voltar do navegador** sai do app, porque as telas não têm endereço próprio.
-  F5 mantém a sessão.
+- **Voltar e Avançar** percorrem as telas visitadas. F5 reabre a tela indicada no endereço após verificar a sessão.
 - **Primeiro acesso ao site** depois de um tempo parado pode levar cerca de um
   minuto ([plano gratuito](#limitações-do-plano-gratuito)).
 

@@ -6,7 +6,7 @@ import { Movimentacoes } from "./pages/Movimentacoes";
 import { Home } from "./pages/Home";
 import { Dashboard } from "./pages/Dashboard";
 import { Categorias } from "./pages/Categorias";
-import type { Tela } from "./navegacao";
+import { navegar, useTela, type Tela } from "./navegacao";
 import { ImportarFatura } from "./pages/ImportarFatura";
 import { ServicoDeAutenticacao } from "./services/ServicoDeAutenticacao";
 import type { Usuario } from "./services/ServicoDeCadastro";
@@ -21,11 +21,8 @@ type Props = {
   servico?: Pick<ServicoDeAutenticacao, "entrar" | "usuarioAtual" | "sair">;
 };
 
-// Navegação simples: uma memória guarda qual tela está visível. Quando as
-// telas crescerem, ou quando cada uma precisar de endereço próprio, vale
-// trocar isto pelo React Router.
 export default function App({ servico = servicoPadrao }: Props) {
-  const [tela, setTela] = useState<Tela>("inicial");
+  const tela = useTela();
   // null = sem sessão. Só existe depois que a API confirma o login ou o /auth/me.
   const [usuario, setUsuario] = useState<Usuario | null>(null);
   const [verificandoSessao, setVerificandoSessao] = useState(true);
@@ -39,7 +36,6 @@ export default function App({ servico = servicoPadrao }: Props) {
       .then((atual) => {
         if (ativo && atual) {
           setUsuario(atual);
-          setTela("home");
         }
       })
       // API fora do ar: segue como visitante; o login mostra o erro se tentar entrar.
@@ -48,49 +44,54 @@ export default function App({ servico = servicoPadrao }: Props) {
     return () => { ativo = false; };
   }, [servico]);
 
+  const visivel: Tela = !usuario && INTERNAS.includes(tela) ? "login"
+    : usuario && !INTERNAS.includes(tela) ? "home" : tela;
+
+  useEffect(() => {
+    if (!verificandoSessao && tela !== visivel) navegar(visivel, true);
+  }, [verificandoSessao, tela, visivel]);
+
   function entrar(conectado: Usuario) {
     setAviso("");
     setUsuario(conectado);
-    setTela("home");
+    navegar("home", true);
   }
 
   // Só limpa a conta depois que a API confirmar a saída; se falhar, o Topo mostra o erro.
   async function sair() {
     await servico.sair();
     setUsuario(null);
-    setTela("login");
+    navegar("login", true);
   }
 
   // Uma chamada protegida respondeu 401: a sessão acabou no servidor.
   const sessaoExpirada = useCallback(() => {
     setUsuario(null);
     setAviso("Sua sessão expirou. Entre novamente.");
-    setTela("login");
+    navegar("login", true);
   }, []);
 
   // Destino do logo nas telas públicas: Início com sessão, página inicial sem.
-  const irParaInicio = () => setTela(usuario ? "home" : "inicial");
+  const irParaInicio = () => navegar(usuario ? "home" : "inicial");
 
   if (verificandoSessao) {
     return <p className="ap-nota" role="status">Carregando...</p>;
   }
 
-  // Sem usuário, nenhuma tela interna abre: vai para o login.
-  const visivel: Tela = !usuario && INTERNAS.includes(tela) ? "login" : tela;
 
   if (usuario) {
     const sessao = { usuario, aoSair: sair };
     switch (visivel) {
       case "importacao":
-        return <ImportarFatura aoVoltar={() => setTela("home")} aoSessaoExpirada={sessaoExpirada} />;
+        return <ImportarFatura aoVoltar={() => navegar("home")} aoSessaoExpirada={sessaoExpirada} />;
       case "home":
-        return <Home aoNavegar={setTela} {...sessao} />;
+        return <Home aoNavegar={navegar} {...sessao} />;
       case "dashboard":
-        return <Dashboard key={usuario.id} aoSessaoExpirada={sessaoExpirada} aoNavegar={setTela} {...sessao} />;
+        return <Dashboard key={usuario.id} aoSessaoExpirada={sessaoExpirada} aoNavegar={navegar} {...sessao} />;
       case "movimentacoes":
-        return <Movimentacoes key={usuario.id} aoNavegar={setTela} aoSessaoExpirada={sessaoExpirada} {...sessao} />;
+        return <Movimentacoes key={usuario.id} aoNavegar={navegar} aoSessaoExpirada={sessaoExpirada} {...sessao} />;
       case "categorias":
-        return <Categorias aoNavegar={setTela} aoSessaoExpirada={sessaoExpirada} {...sessao} />;
+        return <Categorias aoNavegar={navegar} aoSessaoExpirada={sessaoExpirada} {...sessao} />;
     }
   }
 
@@ -99,7 +100,7 @@ export default function App({ servico = servicoPadrao }: Props) {
       return (
         <Login
           aoEntrar={entrar}
-          aoCriarConta={() => setTela("cadastro")}
+          aoCriarConta={() => navegar("cadastro")}
           aoVoltarInicio={irParaInicio}
           aviso={aviso}
           servico={servico}
@@ -107,13 +108,13 @@ export default function App({ servico = servicoPadrao }: Props) {
       );
 
     case "cadastro":
-      return <Cadastro aoEntrar={() => setTela("login")} aoVoltarInicio={irParaInicio} />;
+      return <Cadastro aoEntrar={() => navegar("login")} aoVoltarInicio={irParaInicio} />;
 
     default:
       return (
         <PaginaInicial
-          aoCriarConta={() => setTela("cadastro")}
-          aoEntrar={() => setTela("login")}
+          aoCriarConta={() => navegar("cadastro")}
+          aoEntrar={() => navegar("login")}
         />
       );
   }

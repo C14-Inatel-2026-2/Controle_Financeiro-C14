@@ -1,9 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import App from "./App";
 
 afterEach(() => {
   cleanup();
+  history.replaceState(null, "", location.pathname);
   vi.unstubAllGlobals();
 });
 
@@ -104,6 +105,26 @@ describe("App: sessão e acesso às telas internas", () => {
     fireEvent.click((await screen.findAllByRole("button", { name: "Criar conta" }))[0]);
     fireEvent.click(screen.getByRole("button", { name: "Controle Financeiro" }));
     expect(await paginaInicial()).toBeTruthy();
+  });
+
+  it("restaura a tela ao voltar, avançar e recarregar, e exige login após sair", async () => {
+    history.replaceState(null, "", "#/dashboard");
+    const servico = servicoFalso(ana);
+    render(<App servico={servico} />);
+    await screen.findByRole("heading", { name: "Dashboard" });
+    fireEvent.click(screen.getByRole("button", { name: "Controle Financeiro" }));
+    await screen.findByText("Olá, Ana.");
+    history.back();
+    await screen.findByRole("heading", { name: "Dashboard" });
+    history.forward();
+    await screen.findByText("Olá, Ana.");
+    fireEvent.click(screen.getByRole("button", { name: "Sair" }));
+    await screen.findByRole("heading", { name: "Entrar" });
+    const voltou = new Promise<void>(resolve => window.addEventListener("popstate", () => resolve(), { once: true }));
+    history.back();
+    await voltou;
+    await waitFor(() => expect(location.hash).toBe("#/login"));
+    expect(screen.queryByRole("heading", { name: "Dashboard" })).toBeNull();
   });
 
   it("se o logout falhar, continua conectado e mostra o erro", async () => {
