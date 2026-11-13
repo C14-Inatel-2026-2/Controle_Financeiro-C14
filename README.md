@@ -213,3 +213,40 @@ O backend de metas está implementado: cadastro e consulta com sessão, com as m
 usuário separadas (PR #44). A tela de metas ainda não existe no frontend, e o progresso
 fica sempre em zero. Este README atribuía a integração da interface ao Donatto, e o guia
 da US05 a atribui ao Caio: o grupo precisa confirmar o responsável. Consulte o [contrato da API e os testes da US05](docs/us05-metas-financeiras.md).
+
+## Uso de IA
+
+Esta seção apresenta as ferramentas e os modelos utilizados pelo grupo, suas finalidades e exemplos reais de prompts, indicando quais sugestões foram aceitas, ajustadas ou descartadas.
+
+### Gustavo — Configuração do Jenkins com controle de versões
+
+**Ferramenta/modelo:** Codex GPT-6 Astra.
+
+**Finalidade:** auxiliar na configuração do Jenkins por código, explicando os arquivos e comandos para permitir a implementação pelo integrante e a reprodução do ambiente pelo grupo.
+
+**Pedido inicial — mensagem completa:**
+
+> beleza, vamos seguir assim, vai me passando o código e me explicando e eu vou revisando e implementando lá
+
+Durante essa configuração, a IA sugeriu o seguinte trecho para instalar os plugins:
+
+```dockerfile
+RUN jenkins-plugin-cli \
+    --plugin-file /usr/share/jenkins/ref/plugins.txt \
+    --latest=true
+```
+
+**Revisão do integrante — mensagem completa:**
+
+```csharp
+RUN jenkins-plugin-cli \
+    --plugin-file /usr/share/jenkins/ref/plugins.txt \
+    --latest=true
+```
+
+> Pq usar o --lasters=true? não seria melhor manter uma versão estavel?
+
+**O que foi aceito, ajustado ou descartado:** a instalação dos plugins por código foi aceita, mas a opção de selecionar versões mais recentes automaticamente foi revista após o questionamento do integrante. A configuração adotada passou a utilizar versões explícitas dos plugins e de suas dependências em `plugins.txt`, combinadas com `--latest=false` no Dockerfile.
+
+**Justificativa do ajuste:** controlar as versões utilizadas na construção da imagem melhora a reprodutibilidade do ambiente. As atualizações passam a ser decisões explícitas, sujeitas à revisão de compatibilidade e à validação do grupo.
+
