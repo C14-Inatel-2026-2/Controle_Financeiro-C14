@@ -19,23 +19,27 @@ function withProgress(goal: Goal) {
 }
 
 function respondError(res: Response, error: unknown) {
-  const invalid =
+  if (
     error instanceof InvalidGoalNameError ||
-    error instanceof InvalidGoalTargetAmountError;
+    error instanceof InvalidGoalTargetAmountError
+  ) {
+    res.status(400).json({
+      erro: { codigo: "VALIDATION_ERROR", mensagem: error.message },
+    });
+    return;
+  }
 
-  const duplicate = error instanceof GoalAlreadyExistsError;
+  if (error instanceof GoalAlreadyExistsError) {
+    res.status(409).json({
+      erro: { codigo: "GOAL_ALREADY_EXISTS", mensagem: error.message },
+    });
+    return;
+  }
 
-  res.status(invalid ? 400 : duplicate ? 409 : 500).json({
+  res.status(500).json({
     erro: {
-      codigo: invalid
-        ? "VALIDATION_ERROR"
-        : duplicate
-          ? "GOAL_ALREADY_EXISTS"
-          : "INTERNAL_ERROR",
-      mensagem:
-        invalid || duplicate
-          ? error.message
-          : "Não foi possível concluir a operação de metas.",
+      codigo: "INTERNAL_ERROR",
+      mensagem: "Não foi possível concluir a operação de metas.",
     },
   });
 }

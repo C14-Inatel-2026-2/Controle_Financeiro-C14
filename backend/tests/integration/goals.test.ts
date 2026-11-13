@@ -60,7 +60,9 @@ describe("API e banco libSQL de metas", () => {
     await request(app()).post("/goals").set("Cookie", cookie).send(goal).expect(201);
     const duplicate = await request(app()).post("/goals").set("Cookie", cookie).send({ ...goal, name: " Viagem " });
     expect(duplicate.status).toBe(409);
-    expect(duplicate.body.erro.codigo).toBe("GOAL_ALREADY_EXISTS");
+    expect(duplicate.body).toEqual({
+      erro: { codigo: "GOAL_ALREADY_EXISTS", mensagem: "A meta Viagem já está cadastrada" },
+    });
     expect((await request(app()).post("/goals").set("Cookie", cookie).send({ ...goal, name: "viagem" })).status).toBe(201);
     expect(await createSqliteGoalRepository(db, usuarioId).list()).toHaveLength(2);
   });
@@ -69,6 +71,22 @@ describe("API e banco libSQL de metas", () => {
     const repository = createSqliteGoalRepository(db, usuarioId);
     await repository.save(goal);
     await expect(repository.save(goal)).rejects.toThrow("já está cadastrada");
+  });
+
+  it("busca e lista os mesmos dados validados na ordem de cadastro", async () => {
+    const repository = createSqliteGoalRepository(db, usuarioId);
+    const goals = [
+      { name: " Viagem ", targetAmountInCents: Number.MAX_SAFE_INTEGER },
+      { name: "Reserva", targetAmountInCents: 1 },
+    ];
+    for (const item of goals) await repository.save(item);
+
+    const expected = [{ ...goals[0], name: "Viagem" }, goals[1]];
+    expect(await repository.list()).toEqual(expected);
+    for (const item of expected) {
+      expect(await repository.findByName(item.name)).toEqual(item);
+    }
+    expect(await repository.findByName("Inexistente")).toBeNull();
   });
 
   it("responde erro nas falhas de persistência e consulta", async () => {
@@ -80,7 +98,12 @@ describe("API e banco libSQL de metas", () => {
       await request(application).get("/goals").set("Cookie", cookie),
     ]) {
       expect(response.status).toBe(500);
-      expect(response.body.erro.codigo).toBe("INTERNAL_ERROR");
+      expect(response.body).toEqual({
+        erro: {
+          codigo: "INTERNAL_ERROR",
+          mensagem: "Não foi possível concluir a operação de metas.",
+        },
+      });
     }
   });
 

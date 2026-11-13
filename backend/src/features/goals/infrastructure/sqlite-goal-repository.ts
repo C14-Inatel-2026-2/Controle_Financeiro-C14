@@ -1,7 +1,12 @@
+import type { Row } from "@libsql/client";
 import type { Banco } from "../../../database/conexao.js";
 import { GoalAlreadyExistsError } from "../application/create-goal-service.js";
 import { createGoal, type Goal } from "../domain/goal.js";
 import type { GoalCatalog } from "../domain/goal-repository.js";
+
+function goalFromRow(row: Row): Goal {
+  return createGoal(row.name as string, row.targetAmountInCents as number);
+}
 
 // usuarioId vem da sessão autenticada, nunca do corpo da requisição.
 // Metas legadas (usuario_id NULL, da migration 6) não aparecem para nenhuma conta.
@@ -15,7 +20,7 @@ export function createSqliteGoalRepository(db: Banco, usuarioId: number): GoalCa
         args: [usuarioId, name],
       });
       const row = rows[0];
-      return row ? createGoal(row.name as string, row.targetAmountInCents as number) : null;
+      return row ? goalFromRow(row) : null;
     },
 
     async save(goal: Goal) {
@@ -34,7 +39,7 @@ export function createSqliteGoalRepository(db: Banco, usuarioId: number): GoalCa
         sql: `SELECT ${columns} FROM metas WHERE usuario_id = ? ORDER BY id`,
         args: [usuarioId],
       });
-      return rows.map((row) => createGoal(row.name as string, row.targetAmountInCents as number));
+      return rows.map(goalFromRow);
     },
   };
 }
