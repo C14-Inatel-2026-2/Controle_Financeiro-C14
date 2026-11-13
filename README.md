@@ -216,7 +216,8 @@ da US05 a atribui ao Caio: o grupo precisa confirmar o responsável. Consulte o 
 
 ## Uso de IA
 
-Esta seção apresenta as ferramentas e os modelos utilizados pelo grupo, suas finalidades e exemplos reais de prompts, indicando quais sugestões foram aceitas, ajustadas ou descartadas.
+Ferramentas utilizadas, finalidades, prompts reais e decisões
+sobre as sugestões estão em [Uso de IA](docs/ai-usage/README.md).
 
 ### Gustavo — Configuração do Jenkins com controle de versões
 
