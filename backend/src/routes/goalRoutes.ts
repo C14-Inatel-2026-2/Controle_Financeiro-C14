@@ -6,36 +6,44 @@ import {
 import {
   InvalidGoalNameError,
   InvalidGoalTargetAmountError,
-  type Goal,
 } from "../features/goals/domain/goal.js";
-import type { GoalCatalog } from "../features/goals/domain/goal-repository.js";
+import type { GoalProgressCatalog } from "../features/goals/domain/goal-repository.js";
+import { InvalidContributionError, GoalNotFoundError, GoalProgressLimitError } from "../features/goals/domain/contribution.js";
 import { exigirSessao } from "../middlewares/sessao.js";
 
-export type MetasDoUsuario = (usuarioId: number) => GoalCatalog;
-
-function withProgress(goal: Goal) {
-  // Ainda não há regra de aportes ou vínculo com movimentações definida pela equipe.
-  return { ...goal, progressAmountInCents: 0 };
-}
+export type MetasDoUsuario = (usuarioId: number) => GoalProgressCatalog;
 
 function respondError(res: Response, error: unknown) {
-  const invalid =
+  if (
     error instanceof InvalidGoalNameError ||
-    error instanceof InvalidGoalTargetAmountError;
+    error instanceof InvalidGoalTargetAmountError || error instanceof InvalidContributionError
+  ) {
+    res.status(400).json({
+      erro: { codigo: "VALIDATION_ERROR", mensagem: error.message },
+    });
+    return;
+  }
 
-  const duplicate = error instanceof GoalAlreadyExistsError;
+  if (error instanceof GoalNotFoundError) {
+    res.status(404).json({ erro: { codigo: "GOAL_NOT_FOUND", mensagem: error.message } });
+    return;
+  }
+  if (error instanceof GoalProgressLimitError) {
+    res.status(409).json({ erro: { codigo: "GOAL_PROGRESS_LIMIT", mensagem: error.message } });
+    return;
+  }
 
-  res.status(invalid ? 400 : duplicate ? 409 : 500).json({
+  if (error instanceof GoalAlreadyExistsError) {
+    res.status(409).json({
+      erro: { codigo: "GOAL_ALREADY_EXISTS", mensagem: error.message },
+    });
+    return;
+  }
+
+  res.status(500).json({
     erro: {
-      codigo: invalid
-        ? "VALIDATION_ERROR"
-        : duplicate
-          ? "GOAL_ALREADY_EXISTS"
-          : "INTERNAL_ERROR",
-      mensagem:
-        invalid || duplicate
-          ? error.message
-          : "Não foi possível concluir a operação de metas.",
+      codigo: "INTERNAL_ERROR",
+      mensagem: "Não foi possível concluir a operação de metas.",
     },
   });
 }
@@ -51,7 +59,7 @@ export function createGoalRouter(
   router.get("/", async (req, res) => {
     try {
       const repository = metasDoUsuario(req.usuario!.id);
-      res.json((await repository.list()).map(withProgress));
+      res.json(await repository.listWithProgress());
     } catch (error) {
       respondError(res, error);
     }
@@ -67,7 +75,16 @@ export function createGoalRouter(
         repository,
       );
 
-      res.status(201).json(withProgress(goal));
+      res.status(201).json(await repository.findWithProgressByName(goal.name));
+    } catch (error) {
+      respondError(res, error);
+    }
+  });
+
+  router.post("/:id/contributions", async (req, res) => {
+    try {
+      const id = /^\d+$/.test(req.params.id) ? Number(req.params.id) : NaN;
+      res.status(201).json(await metasDoUsuario(req.usuario!.id).contribute(id, req.body?.amountInCents));
     } catch (error) {
       respondError(res, error);
     }

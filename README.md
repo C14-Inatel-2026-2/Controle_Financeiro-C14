@@ -167,6 +167,8 @@ Não há metas de desempenho, de cobertura mínima ou de disponibilidade definid
 | Gustavo | A configuração do perfil CSV fictício estava repetida em três pontos de dois arquivos de teste. | **Extract Function:** criação de [createExampleCsvProfile()](backend/tests/fixtures/invoice-import/create-example-csv-profile.ts), utilizada nos testes do serviço e do registro de perfis. | Centraliza a configuração comum e mantém identificador e versão configuráveis. Cada chamada cria uma instância própria; os cenários e as verificações dos testes permanecem iguais. | https://github.com/C14-Inatel-2026-2/Controle_Financeiro-C14/pull/42 |
 | Caio | Cadastro e login traziam os detalhes de criptografia da senha (salt, `scrypt`, formato gravado, `timingSafeEqual` e hash fictício) misturados às regras de cada serviço, e o formato `scrypt:<salt>:<hash>` precisava ser mantido igual em dois arquivos. | **Extract Module / Extract Function:** criação de [senhas.ts](backend/src/services/senhas.ts), com `gerarHashDeSenha()`, `senhaConfere()` e `HASH_FICTICIO`, utilizado por [createUserService.ts](backend/src/services/createUserService.ts) e [loginService.ts](backend/src/services/loginService.ts). Testes: [senhas.test.ts](backend/tests/unit/auth/senhas.test.ts) (novo), [loginService.test.ts](backend/tests/unit/auth/loginService.test.ts) e [auth.test.ts](backend/tests/integration/auth.test.ts). | Concentra o formato e a verificação em um único módulo, sem alterar formato, salt de 16 bytes, hash de 64 bytes, parâmetros do `scrypt`, comparação com `timingSafeEqual` nem o hash fictício usado para e-mail inexistente. Validações, mensagens, respostas HTTP e esquema do banco permanecem iguais. Um hash fixo gerado pelo código anterior continua aceito no login. | https://github.com/C14-Inatel-2026-2/Controle_Financeiro-C14/pull/51 |
 | Caio | A tela `Categorias.tsx` misturava apresentação com carregamento da lista, criação, sete estados, validação e tratamento de erros e de sessão expirada. | **Extract Function (custom hook):** criação de [useCategorias](frontend/src/hooks/useCategorias.ts), que concentra estado e regras; [Categorias.tsx](frontend/src/pages/Categorias.tsx) fica responsável pela apresentação. Testes: [Categorias.test.tsx](frontend/src/pages/Categorias.test.tsx). | Separa lógica e interface, mantendo a injeção do serviço usada pelos testes, o tratamento de sessão expirada, a limpeza do formulário, o cancelamento, as validações (nome vazio e limite de 50 caracteres), o bloqueio de envio repetido, o layout, os textos, a ordem das categorias e as chamadas à API. Os cenários novos de teste foram executados antes da extração, para registrar o comportamento original. | https://github.com/C14-Inatel-2026-2/Controle_Financeiro-C14/pull/51 |
+| José | A conversão das linhas do banco para `Goal` estava duplicada em `findByName()` e `list()`. | **Extract Function:** extração de `goalFromRow()` em [sqlite-goal-repository.ts](backend/src/features/goals/infrastructure/sqlite-goal-repository.ts), reutilizada pela busca e pela listagem. | Centraliza a conversão dos campos e a chamada a `createGoal()`, preservando validação, consultas SQL, parâmetros, isolamento por usuário, retorno `null` e ordem de cadastro. | https://github.com/C14-Inatel-2026-2/Controle_Financeiro-C14/pull/57 |
+| José | O tratamento de erros das metas repetia condições em ternários aninhados para selecionar status, código e mensagem. | **Replace Nested Conditional with Guard Clauses:** substituição dos ternários por respostas com retornos antecipados em `respondError()`, em [goalRoutes.ts](backend/src/routes/goalRoutes.ts). | Torna explícitos os casos de validação (400), duplicidade (409) e falha interna (500), preservando códigos, mensagens e formato das respostas, autenticação e progresso em zero. | https://github.com/C14-Inatel-2026-2/Controle_Financeiro-C14/pull/57 |
 
 Evidências dos refactorings do Caio:
 
@@ -176,6 +178,28 @@ Os prints das duas execuções estão nas [evidências anexadas no PR #51](https
 - **Implementação**: commit `8ed4a45` na `Branch-Caio`, integrado à `main` pelo [PR #51](https://github.com/C14-Inatel-2026-2/Controle_Financeiro-C14/pull/51) (merge `b6a28fe`).
 - **DEPOIS**: `pipeline-completa` #18 em `SUCCESS` na `Branch-Caio`, commit `8ed4a458`, com os dois refactorings.
 - **Validação do PR**: a validação automática do PR #51 (`pr-validacao`, PR-51 #1) terminou com o status `continuous-integration/jenkins/pr-head` = `success` no commit `8ed4a45`, conforme o GitHub. Essa validação roda testes e builds, sem cobertura e sem publicar imagem. Localmente, no mesmo código, o backend teve 195 testes unitários, 99 de integração e 294 na cobertura, e o frontend 68 testes, com lint e builds sem erro.
+
+### Evidências dos refactorings de José
+
+- **Implementação**: commit [`b295dfd`](https://github.com/C14-Inatel-2026-2/Controle_Financeiro-C14/commit/b295dfd987efb31c876ebb19716a6c56f8930673), na `Branch-Jose`, apresentado no [PR #57](https://github.com/C14-Inatel-2026-2/Controle_Financeiro-C14/pull/57).
+- **Preservação do comportamento**: os testes de [goals.test.ts](backend/tests/integration/goals.test.ts) foram reforçados para conferir as respostas completas dos erros 409 e 500. Foi acrescentado um teste de busca e listagem com normalização do nome, ordem de cadastro, valores extremos e busca inexistente. Essas verificações passaram também sobre o código anterior às refatorações. Os testes existentes de autenticação, isolamento entre usuários, persistência e migração continuaram aprovados.
+
+Comparação das verificações locais antes e depois das duas refatorações:
+
+| Verificação | Antes | Depois |
+| --- | --- | --- |
+| Backend — suíte completa | 294 testes aprovados | 295 testes aprovados |
+| Backend — testes unitários | 195 aprovados | 195 aprovados |
+| Backend — testes de integração | 99 aprovados | 100 aprovados |
+| Frontend — testes | 68 aprovados | 68 aprovados |
+| Backend — cobertura de instruções | 92,92% | 92,94% |
+| Backend — cobertura de linhas | 93,56% | 93,59% |
+| Builds do backend e do frontend | Aprovados | Aprovados |
+| Lint do frontend | Aprovado | Aprovado |
+
+O aumento de um teste corresponde ao cenário de busca e listagem acrescentado. Após as alterações, `git diff --check` passou sem erros.
+
+- **Validação do PR**: o check `continuous-integration/jenkins/pr-head` do [PR #57](https://github.com/C14-Inatel-2026-2/Controle_Financeiro-C14/pull/57) foi aprovado (`success`) no commit `b295dfd`, conforme consulta à API do GitHub. Essa evidência corresponde ao job `pr-validacao` (PR-57 #1); não comprova execução da pipeline completa de deploy.
 
 ## Gestão ágil
 

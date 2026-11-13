@@ -25,6 +25,14 @@ function entrarPelaTela(email: string) {
 }
 
 describe("App: sessão e acesso às telas internas", () => {
+  it("abre metas pelo atalho da Home e trata sessão expirada", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 401 }));
+    render(<App servico={servicoFalso(ana)} />);
+    await screen.findByText("Olá, Ana.");
+    fireEvent.click(screen.getByRole("button", { name: /Metas\s*Quanto falta/ }));
+    expect(await screen.findByRole("heading", { name: "Entrar" })).toBeTruthy();
+    expect(screen.getByRole("status").textContent).toBe("Sua sessão expirou. Entre novamente.");
+  });
   it("não mostra nenhuma tela enquanto consulta a sessão", () => {
     const servico = servicoFalso(null);
     servico.usuarioAtual.mockReturnValue(new Promise(() => {}));

@@ -35,7 +35,7 @@ describe("Montagem conjunta de metas e usuários", () => {
     await request(application).get("/goals").expect(401);
     const cadastroMeta = await request(application).post("/goals").set("Cookie", cookie).send(meta);
     expect(cadastroMeta.status).toBe(201);
-    expect(cadastroMeta.body).toEqual({ ...meta, progressAmountInCents: 0 });
+    expect(cadastroMeta.body).toEqual({ ...meta, id: expect.any(Number), progressAmountInCents: 0 });
 
     const cadastroUsuario = await request(application).post("/users").send(dadosUsuario);
     if (configurado) {
