@@ -89,7 +89,37 @@ O Claude auxiliou na escrita e alteração do código, testes e documentação. 
 
 ## Gustavo
 
-<!-- Inserir o registro do integrante seguindo a mesma estrutura. -->
+### Gustavo — Configuração do Jenkins com controle de versões
+
+**Ferramenta/modelo:** Codex GPT-6 Astra.
+
+**Finalidade:** auxiliar na configuração do Jenkins por código, explicando os arquivos e comandos para permitir a implementação pelo integrante e a reprodução do ambiente pelo grupo.
+
+**Pedido inicial — mensagem completa:**
+
+> beleza, vamos seguir assim, vai me passando o código e me explicando e eu vou revisando e implementando lá
+
+Durante essa configuração, a IA sugeriu o seguinte trecho para instalar os plugins:
+
+```dockerfile
+RUN jenkins-plugin-cli \
+    --plugin-file /usr/share/jenkins/ref/plugins.txt \
+    --latest=true
+```
+
+**Revisão do integrante — mensagem completa:**
+
+```csharp
+RUN jenkins-plugin-cli \
+    --plugin-file /usr/share/jenkins/ref/plugins.txt \
+    --latest=true
+```
+
+> Pq usar o --lasters=true? não seria melhor manter uma versão estavel?
+
+**O que foi aceito, ajustado ou descartado:** a instalação dos plugins por código foi aceita, mas a opção de selecionar versões mais recentes automaticamente foi revista após o questionamento do integrante. A configuração adotada passou a utilizar versões explícitas dos plugins e de suas dependências em `plugins.txt`, combinadas com `--latest=false` no Dockerfile.
+
+**Justificativa do ajuste:** controlar as versões utilizadas na construção da imagem melhora a reprodutibilidade do ambiente. As atualizações passam a ser decisões explícitas, sujeitas à revisão de compatibilidade e à validação do grupo.
 
 ## José
 
