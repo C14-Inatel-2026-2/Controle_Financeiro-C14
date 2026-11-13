@@ -189,7 +189,8 @@ describe("Confirmação de fatura autenticada com libSQL", () => {
 
 describe("Migration 4 (sessões)", () => {
   it("adiciona a tabela a um banco na versão 3 e preserva os registros", async () => {
-    await db.executeMultiple(`DROP INDEX movimentacoes_categoria; ALTER TABLE movimentacoes DROP COLUMN categoria_id; DROP TABLE categorias;
+    await db.executeMultiple(`DROP TABLE aportes_metas;
+      DROP INDEX movimentacoes_categoria; ALTER TABLE movimentacoes DROP COLUMN categoria_id; DROP TABLE categorias;
       DROP TABLE sessoes; DELETE FROM migrations WHERE versao >= 4;
       INSERT INTO usuarios (id, nome, email, senha_hash) VALUES (1, 'Ana', 'ana@example.test', 'hash-teste');
       INSERT INTO movimentacoes (usuario_id, descricao, tipo, valor_em_centavos, data)
@@ -200,6 +201,6 @@ describe("Migration 4 (sessões)", () => {
     expect(await linhas(db, "SELECT * FROM movimentacoes")).toHaveLength(1);
     expect(await linhas(db, "SELECT * FROM sessoes")).toEqual([]);
     expect(await linhas(db, "SELECT versao FROM migrations ORDER BY versao"))
-      .toEqual([{ versao: 1 }, { versao: 2 }, { versao: 3 }, { versao: 4 }, { versao: 5 }, { versao: 6 }]);
+      .toEqual([{ versao: 1 }, { versao: 2 }, { versao: 3 }, { versao: 4 }, { versao: 5 }, { versao: 6 }, { versao: 7 }]);
   });
 });

@@ -35,7 +35,7 @@ describe("API e banco libSQL de metas", () => {
     expect((await request(app()).get("/goals").set("Cookie", cookie).expect(200)).body).toEqual([]);
     const response = await request(app()).post("/goals").set("Cookie", cookie).send({ ...goal, name: " Viagem " });
     expect(response.status).toBe(201);
-    expect(response.body).toEqual({ ...goal, progressAmountInCents: 0 });
+    expect(response.body).toEqual({ ...goal, id: expect.any(Number), progressAmountInCents: 0 });
     db.close();
     db = await abrirBanco(join(directory, "financeiro.sqlite"));
     const listing = await request(app()).get("/goals").set("Cookie", cookie);
@@ -108,7 +108,7 @@ describe("API e banco libSQL de metas", () => {
   });
 
   it("adiciona a migration 2 a um banco na versão 1 e preserva seus registros", async () => {
-    await db.executeMultiple(`DROP TABLE metas; DELETE FROM migrations WHERE versao IN (2, 6);
+    await db.executeMultiple(`DROP TABLE aportes_metas; DROP TABLE metas; DELETE FROM migrations WHERE versao IN (2, 6, 7);
       INSERT INTO movimentacoes (usuario_id, descricao, tipo, valor_em_centavos, data)
         VALUES (1, 'Salário', 'receita', 10000, '2026-10-01');`);
     await migrarBanco(db);
