@@ -85,7 +85,61 @@ O Claude auxiliou na escrita e alteração do código, testes e documentação. 
 
 ## Igor
 
-<!-- Inserir o registro do integrante seguindo a mesma estrutura. -->
+### ChatGPT
+
+**Ferramenta/modelo:** ChatGPT — GPT-6 e outros modelos utilizados durante o desenvolvimento.
+
+#### Para que utilizei
+
+- **Banco de dados:** apoio na análise e integração do SQLite com as funcionalidades de cadastro, movimentações financeiras e cálculo de saldo.
+- **Backend:** esclarecimento sobre arquitetura, organização de rotas, serviços, APIs e comunicação com o banco de dados.
+- **Testes:** orientações sobre testes unitários utilizando Vitest e boas práticas para validar funcionalidades.
+- **Versionamento:** auxílio na utilização de Git e GitHub, organização de branches, padronização de commits.
+- **Organização do projeto:** identificação de tarefas pendentes, divisão de responsabilidades e planejamento das entregas.
+- **Melhorias funcionais:** análise da representação de valores monetários e implementação de navegação entre telas.
+
+#### Prompts utilizados — exemplos adaptados
+
+**1. Integração do banco de dados**
+
+> Analise a estrutura do backend do sistema de controle financeiro e explique como integrar o SQLite às funcionalidades de cadastro, movimentações e cálculo de saldo, respeitando a arquitetura existente e garantindo a persistência dos dados.
+
+**2. Tratamento de valores financeiros**
+
+> Avalie a forma como os valores monetários são representados no sistema e proponha uma solução que permita ao usuário informar valores em reais, mantendo a precisão dos cálculos e evitando problemas com números decimais.
+
+**3. Análise das pendências do projeto**
+
+> Analise as funcionalidades existentes no repositório, identifique possíveis pendências relacionadas ao backend e ao banco de dados e organize as próximas etapas necessárias para concluir a integração do sistema.
+
+**4. Versionamento e GitHub**
+
+> Oriente o processo de versionamento das alterações realizadas localmente, incluindo verificação da branch, preparação dos arquivos, criação de commits seguindo boas práticas e envio das modificações ao repositório remoto.
+
+**5. Navegação entre telas**
+
+> Analise a funcionalidade de navegação do sistema e explique como implementar o retorno à tela anterior, preservando o comportamento esperado da interface. Oriente também a classificação da alteração seguindo o padrão Conventional Commits.
+
+**6. Estrutura e funcionamento da API**
+
+> Explique a organização da API no projeto de controle financeiro, identificando as responsabilidades das rotas e dos serviços e como ocorre a comunicação entre frontend, backend e banco de dados.
+
+#### O que foi aceito, ajustado ou descartado
+
+- **Aceito:** orientações sobre integração do SQLite, estruturação do backend, organização das funcionalidades e boas práticas de versionamento.
+- **Ajustado:** sugestões sobre representação de valores monetários, considerando a experiência do usuário e a necessidade de manter precisão nos cálculos financeiros.
+- **Revisado:** planejamento das atividades de banco de dados, movimentações e cálculo de saldo, considerando as responsabilidades definidas pelo grupo.
+- **Descartado:** utilização do GitHub Actions como ferramenta de integração contínua, pois o grupo optou pela utilização do Jenkins.
+
+#### Minha participação
+
+O ChatGPT foi utilizado como ferramenta de apoio técnico e educacional durante o desenvolvimento do sistema de controle financeiro.
+
+Minha principal responsabilidade no projeto está relacionada ao banco de dados e ao backend. Utilizei a IA para compreender a arquitetura existente, avaliar possibilidades de implementação, esclarecer dúvidas técnicas e organizar as atividades sob minha responsabilidade.
+
+As sugestões foram analisadas considerando os requisitos da disciplina e as decisões do grupo. A ferramenta também auxiliou no entendimento dos processos de versionamento e na aplicação de boas práticas de Engenharia de Software.
+
+A utilização da IA teve como objetivo complementar o desenvolvimento, mantendo a responsabilidade pelas decisões técnicas, implementação e validação das funcionalidades.
 
 ## Gustavo
 
