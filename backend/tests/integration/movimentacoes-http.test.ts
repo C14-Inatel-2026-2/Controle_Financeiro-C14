@@ -25,6 +25,24 @@ afterEach(() => db.close());
 describe.each(["", "/api"])("movimentações em '%s/movimentacoes'", (prefixo) => {
   const rota = `${prefixo}/movimentacoes`;
 
+  it.each([
+    { descricao: " " }, { tipo: "outro" },
+    { valorEmCentavos: -1 }, { valorEmCentavos: 1.5 },
+    { valorEmCentavos: "1500" }, { valorEmCentavos: Number.MAX_SAFE_INTEGER + 1 },
+    { categoriaId: 0 }, { categoriaId: 1.5 },
+    { data: "2026-02-30" }, { data: "10/11/2026" },
+  ])("rejeita dados inválidos sem gravar: %j", async (campos) => {
+    await request(app).post(rota).set("Cookie", cookie)
+      .send({ ...movimento, ...campos })
+      .expect(400, { erro: { codigo: "VALIDATION_ERROR", mensagem: "Dados da movimentação inválidos." } });
+    await request(app).get(rota).set("Cookie", cookie).expect(200, []);
+  });
+
+  it("aceita zero centavos e uma data válida de ano bissexto", async () => {
+    await request(app).post(rota).set("Cookie", cookie)
+      .send({ ...movimento, valorEmCentavos: 0, data: "2024-02-29" }).expect(201);
+  });
+
   it("exige login para inserir ou listar", async () => {
     await request(app).post(rota).send(movimento).expect(401);
     await request(app).get(rota).expect(401);
