@@ -177,5 +177,137 @@ RUN jenkins-plugin-cli \
 
 ## José
 
-<!-- Inserir o registro do integrante seguindo a mesma estrutura. -->
+### Ferramentas e modelos utilizados
+
+- **Codex:** modelo `gpt-6.1-sol`, confirmado nos metadados das conversas consultadas.
+- **ChatGPT:** uso informado na solicitação deste registro, mas sem texto original de prompts recuperado nas fontes acessíveis. Modelo não confirmado; não atribuo ao Codex solicitações feitas no ChatGPT.
+
+### Para que utilizei
+
+Utilizei o Codex na conclusão e validação da US05 — Metas Financeiras, na adaptação dos testes à autenticação, na resolução de conflito de integração, em duas refatorações e na implementação de aportes e progresso com interface React. Também houve apoio à documentação técnica e à execução de testes, builds e lint.
+
+Os registros acessíveis são as conversas **“Concluir backend da US05”**, de 12/11/2026, e **“Levantar uso de IA no projeto”**, de 13/11/2026, incluindo o pedido anexado **“Implementar US05 completa — Backend e Frontend”**. Datas e horários abaixo usam America/Sao_Paulo (UTC−3).
+
+**Limite de atribuição:** o Git registra a implementação inicial de metas, com domínio, serviço, criação, listagem, persistência SQLite e testes, integrada pelo PR #30. Não recuperei o prompt dessa etapa; sua autoria assistida por IA não pode ser comprovada apenas pelos commits. Na primeira conversa disponível, a vinculação das metas ao usuário já estava parcialmente implementada localmente. A migração posterior para libSQL/Turso também não deve ser atribuída integralmente a essa conversa.
+
+### Prompts reais — trechos
+
+Os trechos abaixo foram recuperados das mensagens originais; `[...]` indica cortes. Nos dois primeiros pedidos, removi somente as barras de escape de formatação presentes no registro exportado, sem reconstruir o texto ausente.
+
+**1. Conclusão e testes da autenticação das metas — 12/11/2026, 00:32**
+
+**Ferramenta/modelo:** Codex, `gpt-6.1-sol`. **Finalidade:** concluir as alterações locais e validar autenticação, isolamento e preservação dos dados.
+
+> Concluir a parte de backend da US05 — Metas Financeiras, aproveitando as alterações locais já iniciadas.
+>
+> [...]
+>
+> O último build apresentou referências antigas a goalCatalog e um erro relacionado à exportação de MetasDoUsuario. Algumas alterações estavam sem salvar. Verifique o estado atual dos arquivos antes de corrigir.
+>
+> [...]
+>
+> 3. Garantir que POST /goals e GET /goals exijam autenticação.
+> 4. Impedir que um usuário consulte ou altere metas de outro usuário.
+> 5. Permitir metas com o mesmo nome para usuários diferentes.
+> 6. Garantir que nomes duplicados para o mesmo usuário continuem retornando 409.
+> 7. Revisar a migração 6, incluindo preservação de registros existentes, integridade referencial e execução repetida sem efeitos indevidos.
+> 8. Atualizar os testes antigos da US05 para a nova arquitetura autenticada.
+> 9. Criar testes de integração para ausência de sessão, isolamento entre usuários, duplicidade e persistência após reabrir o SQLite.
+>
+> [...]
+>
+> Não invente uma regra financeira. Preserve temporariamente o comportamento atual e indique o que falta decidir para implementar progresso dinâmico.
+
+**Resultado e decisões:** foram criados `backend/tests/integration/goals-auth.test.ts` e `goals-migration.test.ts`, adaptados os testes existentes e atualizado o guia da US05. As mudanças de produção registradas nessa interação foram comentários em `goalRoutes.ts` e `migrarMetasPorUsuario.ts`, além de formatação em `appComBanco.ts`; a integração principal já estava no disco e foi revisada e aproveitada. Os testes novos tiveram o dado de `token_hash` corrigido para respeitar os 64 caracteres exigidos. O conjunto entregue manteve o progresso em zero e o legado com `usuario_id NULL`, sem atribuição arbitrária de proprietário. Build aprovado e 277 testes aprovados após os ajustes. Entrega registrada no commit `3320f81`, integrado pelo PR #44.
+
+**2. Correção do conflito entre metas e resumo financeiro — 12/11/2026, 01:15; continuação às 01:20**
+
+**Ferramenta/modelo:** Codex, `gpt-6.1-sol`. **Finalidade:** resolver uma incompatibilidade real de integração em `backend/src/app.ts`.
+
+> Preciso resolver um conflito de merge no projeto Controle_Financeiro-C14.
+>
+> [...]
+>
+> Resolver o conflito preservando integralmente as funcionalidades das duas branches.
+>
+> [...]
+>
+> 6. Resolva os marcadores <<<<<<<, ======= e >>>>>>> preservando os dois lados.
+> 7. Não substitua todo o app.ts por uma versão antiga.
+> 8. Não descarte nem reverta alterações de outros integrantes.
+
+Após salvar a edição não salva do editor em um backup, enviei a continuação:
+
+> Pode continuar a resolução do conflito. Compare o backup, o arquivo atual no disco, HEAD e origin/main.
+>
+> Preserve a rota /resumo da main e a integração das metas autenticadas da Branch-Jose. Não sobrescreva outras funcionalidades.
+>
+> Depois execute o build e todos os testes do backend. Se passarem, marque apenas backend/src/app.ts como resolvido com git add.
+
+**Resultado e decisões:** aceitei a resolução que preservou `/resumo`, as metas autenticadas e `pastaFrontend`. O Codex removeu os marcadores e comparou o código compilado com o backup do editor. Build e 279 testes passaram; somente `app.ts` foi marcado como resolvido. O registro comprova essa correção e o `git add`, sem execução de commit ou conclusão do merge pela IA.
+
+**3. Duas refatorações com preservação de comportamento — 13/11/2026, 15:49**
+
+**Ferramenta/modelo:** Codex, `gpt-6.1-sol`. **Finalidade:** identificar problemas reais e realizar as duas refatorações obrigatórias.
+
+> Preciso implementar minhas duas refatorações obrigatórias para a entrega final do projeto Controle_Financeiro-C14.
+>
+> [...]
+>
+> 1. Analise a implementação atual do módulo de metas financeiras.
+> 2. Identifique dois code smells reais que justifiquem refatorações distintas.
+> 3. Implemente duas refatorações efetivas, preferencialmente no módulo de metas.
+> 4. Preserve rigorosamente o comportamento existente, as respostas da API, a autenticação e a persistência.
+> 5. Mantenha as alterações pequenas, objetivas e fáceis de justificar ao professor.
+> 6. Explique claramente o code smell encontrado, a técnica aplicada, o código antes/depois e o motivo de cada alteração.
+> 7. Execute os testes unitários e de integração do backend, a cobertura e o build.
+> 8. Execute os testes, o lint e o build do frontend para verificar regressões.
+>
+> [...]
+>
+> - Não implementar funcionalidades novas durante o refactoring.
+
+**Resultado e decisões:** foram aceitas **Extract Function**, com `goalFromRow()` em `sqlite-goal-repository.ts`, e **Replace Nested Conditional with Guard Clauses**, em `respondError()` de `goalRoutes.ts`. `goals.test.ts` recebeu verificações completas de erros e um cenário adicional de busca/listagem, executados também antes das refatorações. Foram preservados o contrato da API, as mensagens, a autenticação e a persistência. As mudanças ficaram restritas a esses três arquivos, sem antecipar aportes. Commit `b295dfd`, no PR #57: backend de 294 para 295 testes aprovados; frontend manteve 68. Builds, lint e cobertura também foram executados com sucesso.
+
+**4. Aportes, progresso persistente e tela de metas — 13/11/2026, 17:07**
+
+**Ferramenta/modelo:** Codex, `gpt-6.1-sol`. **Finalidade:** substituir o progresso fixo por uma funcionalidade completa, conforme regra mínima explicitamente escolhida no pedido anexado.
+
+> Preciso que você implemente o acompanhamento funcional do progresso das metas financeiras, incluindo backend, frontend, persistência e testes, realizando o mínimo de alterações necessário para entregar uma funcionalidade utilizável de ponta a ponta.
+>
+> [...]
+>
+> 3. O usuário pode registrar aportes positivos em suas próprias metas.
+> 4. O progresso de cada meta corresponde à soma dos aportes registrados.
+> 5. A porcentagem de conclusão é calculada por `valor acumulado / valor-alvo × 100`.
+> 6. Os aportes devem persistir no banco de dados.
+> 7. Aportes não alteram receitas, despesas nem o saldo geral do usuário.
+> 8. Contas diferentes não podem consultar ou modificar metas umas das outras.
+> 9. Não implementar retiradas, edição, exclusão ou estornos nesta entrega.
+> 10. Permitir que o acumulado ultrapasse o valor-alvo, exibindo o percentual real e limitando apenas a largura visual da barra a 100%.
+>
+> Essa é a regra escolhida para a implementação mínima. Não alegue que ela já foi formalmente aprovada pela equipe.
+>
+> [...]
+>
+> Não aceite identificador de proprietário enviado pelo frontend. Utilize exclusivamente a sessão autenticada.
+
+**Resultado e decisões:** foram produzidos `migrarAportesMetas.ts` (migration 7), o domínio de aportes, o endpoint autenticado `POST /goals/:id/contributions` e o cálculo do acumulado no repositório. No frontend, foram criados `Metas.tsx`, `ServicoDeMetas.ts`, `centavosDeReais.ts` e seus testes, com integração ao menu e à Início. Foram ajustados os testes anteriores para o ID estável e a nova migration. A implementação protege a propriedade e o limite inteiro seguro, inclusive sob concorrência. Aceitei a regra mínima descrita no pedido; retiradas, estornos, edição, exclusão e vínculo com movimentações ficaram fora do escopo. Commit `eb36773`, integrado pelo PR #57. A validação registrada terminou com 329 testes no backend e 102 no frontend, além de cobertura, builds e lint aprovados. Os testes usaram libSQL local; não comprovam execução no Turso remoto ou deploy.
+
+### O que foi aceito, ajustado ou descartado
+
+- **Aceito:** testes e documentação da autenticação, correção do conflito, duas refatorações e implementação funcional de aportes, posteriormente incorporados às entregas. As alterações foram deixadas para minha revisão antes dos commits; os históricos não sustentam atribuir toda a implementação inicial à IA.
+- **Ajustado:** testes incompatíveis com a arquitetura autenticada, dados inválidos de sessão, expectativas das migrations e do contrato com ID, além do conflito com `/resumo`. Preservei o trabalho dos colegas ao exigir a comparação entre as versões e fornecer o backup da edição do editor.
+- **Decisão humana:** inicialmente determinei manter o progresso em zero; depois escolhi explicitamente a regra mínima de aportes, sem apresentá-la como aprovação formal da equipe.
+- **Fora do escopo ou adiado:** retiradas, estornos e integração com movimentações. A investigação preliminar do progresso não gerou implementação enquanto a regra ainda não havia sido definida; não há registro suficiente para listar outras sugestões como efetivamente descartadas.
+- **Validação:** os registros contêm execuções de testes automatizados, builds, lint e `git diff --check`. Para as refatorações, o check Jenkins `continuous-integration/jenkins/pr-head` foi registrado como `success` no commit `b295dfd` (PR-57 #1). Essa evidência se refere àquela versão do PR e não comprova deploy nem validação posterior do commit de aportes.
+
+### Resultados verificáveis
+
+- [PR #44 — autenticação e isolamento das metas](https://github.com/C14-Inatel-2026-2/Controle_Financeiro-C14/pull/44), com o conjunto de alterações do commit `3320f81`.
+- [PR #57 — refatorações, aportes e interface](https://github.com/C14-Inatel-2026-2/Controle_Financeiro-C14/pull/57), incluindo os commits `b295dfd` e `eb36773`.
+- [Documentação da US05](../us05-metas-financeiras.md), com contratos, migrations, regra de progresso e limitações.
+- [Testes de integração da autenticação](../../backend/tests/integration/goals-auth.test.ts), [migração das metas](../../backend/tests/integration/goals-migration.test.ts), [API e repositório](../../backend/tests/integration/goals.test.ts) e [aportes](../../backend/tests/integration/goals-contributions.test.ts).
+- [Testes unitários de metas](../../backend/tests/unit/goals), [tela React](../../frontend/src/pages/Metas.test.tsx), [serviço HTTP](../../frontend/src/services/ServicoDeMetas.test.ts) e [conversão monetária](../../frontend/src/utils/centavosDeReais.test.ts).
+- [Comparação dos testes antes e depois das refatorações e evidência histórica do Jenkins](../../README.md#evidências-dos-refactorings-de-josé). Os resultados citados neste registro são históricos; as suítes não foram reexecutadas nesta edição documental.
 
