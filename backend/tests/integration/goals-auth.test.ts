@@ -79,9 +79,9 @@ describe("Autenticação e isolamento das metas", () => {
     db = await abrirBanco(join(directory, "financeiro.sqlite"));
     const reopened = createAppComBanco(db);
     expect((await request(reopened).get(path).set("Cookie", ana.cookie).expect(200)).body)
-      .toEqual([{ ...goal, progressAmountInCents: 0 }]);
+      .toEqual([{ ...goal, id: expect.any(Number), progressAmountInCents: 0 }]);
     expect((await request(reopened).get(path).set("Cookie", bia.cookie).expect(200)).body)
-      .toEqual([{ ...biaGoal, progressAmountInCents: 0 }]);
+      .toEqual([{ ...biaGoal, id: expect.any(Number), progressAmountInCents: 0 }]);
     await request(reopened).post(path).set("Cookie", ana.cookie).send(goal).expect(409);
   });
 

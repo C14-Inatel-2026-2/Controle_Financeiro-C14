@@ -5,6 +5,7 @@ import { migrarImportacoes } from "./migrarImportacoes.js";
 import { migrarSessoes } from "./migrarSessoes.js";
 import { migrarCategorias } from "./migrarCategorias.js";
 import { migrarMetasPorUsuario } from "./migrarMetasPorUsuario.js";
+import { migrarAportesMetas } from "./migrarAportesMetas.js";
 import { aplicarMigration, type Banco } from "./aplicarMigration.js";
 
 export type { Banco };
@@ -73,4 +74,5 @@ export async function migrarBanco(db: Banco): Promise<void> {
   await migrarSessoes(db);
   await migrarCategorias(db);
   await migrarMetasPorUsuario(db);
+  await migrarAportesMetas(db);
 }

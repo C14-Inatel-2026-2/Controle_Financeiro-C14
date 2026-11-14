@@ -12,8 +12,9 @@ afterEach(() => db.close());
 function prepararLegado() {
   // Reconstitui apenas o schema antigo de metas em um banco descartável de teste.
   return db.executeMultiple(`
+    DROP TABLE aportes_metas;
     DROP TABLE metas;
-    DELETE FROM migrations WHERE versao = 6;
+    DELETE FROM migrations WHERE versao IN (6, 7);
     CREATE TABLE metas (
       id INTEGER PRIMARY KEY,
       nome TEXT NOT NULL UNIQUE CHECK (length(trim(nome)) > 0),

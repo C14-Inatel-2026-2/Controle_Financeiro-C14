@@ -43,7 +43,7 @@ const ATALHOS: {
   {
     titulo: "Metas",
     descricao: "Quanto falta para alcançar",
-    destino: null,
+    destino: "metas",
     icone: (
       <>
         <circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="2" />

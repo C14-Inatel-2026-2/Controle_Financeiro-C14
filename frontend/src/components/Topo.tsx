@@ -18,6 +18,7 @@ type Props = PropsDaSessao & {
 };
 
 const MENU: { tela: Tela; rotulo: string }[] = [
+  { tela: "metas", rotulo: "Metas" },
   { tela: "importacao", rotulo: "Importar fatura" },
   { tela: "home", rotulo: "Início" },
   { tela: "movimentacoes", rotulo: "Lançamentos" },

@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
 
-const telas = ["inicial", "login", "cadastro", "home", "dashboard", "movimentacoes", "categorias", "importacao"] as const;
+const telas = ["inicial", "login", "cadastro", "home", "dashboard", "movimentacoes", "categorias", "importacao", "metas"] as const;
 export type Tela = typeof telas[number];
 
 function telaAtual(): Tela {

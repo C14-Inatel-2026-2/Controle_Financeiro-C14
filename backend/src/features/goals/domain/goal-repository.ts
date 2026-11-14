@@ -10,3 +10,14 @@ export interface GoalRepository {
 export interface GoalCatalog extends GoalRepository {
   list(): Promise<Goal[]>;
 }
+
+export interface GoalWithProgress extends Goal {
+  id: number;
+  progressAmountInCents: number;
+}
+
+export interface GoalProgressCatalog extends GoalCatalog {
+  listWithProgress(): Promise<GoalWithProgress[]>;
+  findWithProgressByName(name: string): Promise<GoalWithProgress | null>;
+  contribute(id: number, amountInCents: number): Promise<GoalWithProgress>;
+}
