@@ -105,9 +105,8 @@ preciso `credentials: "include"` e CORS com credenciais.
   página inicial pública, assim como o botão "← Voltar ao início" do formulário,
   que continua visível no celular, onde o painel do logo fica oculto.
 
-A navegação continua guardada na memória do App, sem endereço por tela. Depois
-de F5 a pessoa volta à Home, não à tela em que estava, e o Voltar do navegador
-não troca de tela.
+Cada tela tem um endereço, como `#/dashboard`. Voltar e Avançar percorrem o histórico.
+Ao recarregar uma tela interna, o app verifica a sessão antes de exibi-la.
 
 Testes: `frontend/src/services/ServicoDeAutenticacao.test.ts` (contrato das três
 rotas), `frontend/src/pages/Login.test.tsx` (login válido, credenciais
